@@ -91,3 +91,17 @@ export function rollupConfidence(
 export function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
+
+/**
+ * Stage 2 (daily loop) - per-activity data fidelity, additive.
+ *
+ * Provenance only: 'manual' entries are typed by the athlete (self-reported),
+ * every synced source (Strava, Garmin, Coros, Apple) is device-recorded.
+ * Not wired into any existing consumer yet - re-exported from
+ * athlete-state.ts (the read layer for this domain) for Wave 2 to use.
+ */
+export type DataFidelity = 'device' | 'self-reported';
+
+export function deriveDataFidelity(source: string): DataFidelity {
+  return source === 'manual' ? 'self-reported' : 'device';
+}

@@ -43,6 +43,10 @@ import {
 
 export type { FormClass };
 
+// Stage 2 (daily loop) - additive re-export, not yet wired into any consumer.
+export { deriveDataFidelity } from './athlete-state-pure';
+export type { DataFidelity } from './athlete-state-pure';
+
 export interface AthleteState {
   asOfIso: string;
   ctl: number;

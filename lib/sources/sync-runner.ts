@@ -1,5 +1,5 @@
 import 'server-only';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, gte, lte } from 'drizzle-orm';
 import { getDb, schema } from '@/lib/db';
 import {
   fetchActivityPage,
@@ -8,7 +8,8 @@ import {
 } from '@/lib/sources/strava-api';
 import { mapStravaActivity } from '@/lib/sources/strava-mapper';
 import { ensureShoesForGearIds } from '@/lib/shoes/ingest';
-import type { SyncJob } from '@/lib/db/schema';
+import { findOverlappingActivity, type OverlapCandidate } from '@/lib/analysis/activity-dedup-pure';
+import type { SyncJob, NewActivity } from '@/lib/db/schema';
 
 /* ----------------------------------------------------------------------------
  * Sync runner — drives a sync job to completion.
@@ -166,8 +167,10 @@ export async function runJob(jobId: number): Promise<SyncJob> {
       for (const a of activities) {
         const row = mapStravaActivity(a);
         const result = await upsertActivity(row);
-        if (result === 'inserted') added++;
-        else if (result === 'updated') updated++;
+        if (result === 'inserted') {
+          added++;
+          await recordManualOverlapIfAny(row);
+        } else if (result === 'updated') updated++;
 
         const ts = new Date(a.start_date).getTime();
         if (ts < pageOldestUtc) pageOldestUtc = ts;
@@ -308,6 +311,80 @@ async function upsertActivity(row: ReturnType<typeof mapStravaActivity>): Promis
   }
   await db.insert(schema.activities).values(row);
   return 'inserted';
+}
+
+/* ----------------------------------------------------------------------------
+ * Manual/synced overlap dedup guard (Stage 2 - daily loop, additive)
+ *
+ * A newly-inserted synced Run-type activity may be the same run as an
+ * existing manual entry (P0-7's manual-results fallback). We never merge or
+ * delete either row here - Wave 2's "supersede" UI owns that decision. This
+ * just records the overlap so the UI can surface it, by JSON-merging a
+ * `dedup` marker into the manual row's `raw_json` (manual rows never set
+ * raw_json themselves, so this is a clean additive write). Best-effort: any
+ * failure here must never break the sync.
+ * -------------------------------------------------------------------------- */
+
+const RUN_TYPES = new Set(['Run', 'VirtualRun', 'TrailRun']);
+
+function safeParseJson(raw: string | null): Record<string, unknown> {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+async function recordManualOverlapIfAny(row: NewActivity): Promise<void> {
+  if (!RUN_TYPES.has(row.type)) return;
+  try {
+    const db = getDb();
+    const localDateIso = row.startDateLocal.slice(0, 10);
+
+    const manualCandidates = await db
+      .select()
+      .from(schema.activities)
+      .where(
+        and(
+          eq(schema.activities.source, 'manual'),
+          gte(schema.activities.startDateLocal, localDateIso),
+          lte(schema.activities.startDateLocal, localDateIso + 'T99:99:99')
+        )
+      )
+      .all();
+    if (manualCandidates.length === 0) return;
+
+    const incoming: OverlapCandidate = {
+      localDateIso,
+      durationS: row.movingTimeS ?? null,
+      distanceM: row.distanceM ?? null,
+    };
+    const candidates = manualCandidates.map((m) => ({
+      ...m,
+      localDateIso: m.startDateLocal.slice(0, 10),
+      durationS: m.movingTimeS ?? null,
+      distanceM: m.distanceM ?? null,
+    }));
+    const match = findOverlappingActivity(incoming, candidates);
+    if (!match) return;
+
+    const merged = {
+      ...safeParseJson(match.rawJson),
+      dedup: {
+        overlapsSyncedSourceId: row.sourceId,
+        overlapsSyncedType: row.type,
+        detectedAt: new Date().toISOString(),
+      },
+    };
+    await db
+      .update(schema.activities)
+      .set({ rawJson: JSON.stringify(merged), updatedAt: new Date() })
+      .where(eq(schema.activities.id, match.id));
+  } catch {
+    // Best-effort dedup marker — never break the sync over this.
+  }
 }
 
 /* ----------------------------------------------------------------------------

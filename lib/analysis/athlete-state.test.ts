@@ -3,6 +3,7 @@ import {
   computeEwma,
   classifyForm,
   rollupConfidence,
+  deriveDataFidelity,
   CTL_TIME_CONSTANT,
   ATL_TIME_CONSTANT,
 } from './athlete-state-pure';
@@ -125,5 +126,18 @@ describe('rollupConfidence', () => {
     expect(
       rollupConfidence({ calibrated: 2, 'pace-only': 3, estimated: 5 }, 10)
     ).toBe('estimated');
+  });
+});
+
+describe('deriveDataFidelity', () => {
+  it('returns "self-reported" for manual entries', () => {
+    expect(deriveDataFidelity('manual')).toBe('self-reported');
+  });
+
+  it('returns "device" for every synced source', () => {
+    expect(deriveDataFidelity('strava')).toBe('device');
+    expect(deriveDataFidelity('garmin')).toBe('device');
+    expect(deriveDataFidelity('coros')).toBe('device');
+    expect(deriveDataFidelity('apple')).toBe('device');
   });
 });
