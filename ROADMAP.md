@@ -1,3 +1,13 @@
+## Daily loop — Stages 0–5 ⏳ IN BUILD
+
+The next build restructures VELOCITY around "the daily loop" — three UI layers organized by cadence (DAILY: Patrol, WEEKLY: Recon, RARE: Profile) with three consecutive phases landing the full flow.
+
+- **Phase 9 (Foundations)** — Ambient sync on Patrol open; manual results fallback when device outage occurs (P0-7: form, detection, dedup guard). Activity flows through identical engine path.
+- **Phase 10 (Prompts + Journal)** — Context-completeness reader assembles missing data; skippable prompt queue uses configured defaults; wellness slider writes to journal; one unified surface for wellness + interruptions.
+- **Phase 11 (Brief + Connections)** — Patrol brief reordered by priority (sync→prompts→coach read→next session→goal line); Connections panel on Profile lists adapter status/last-sync for Strava, Garmin, COROS, Polar.
+
+---
+
 ## NS personal HR calibration ✅ SHIPPED
 
 Matt's worked-out NS calibration is now seeded as EDITABLE defaults the

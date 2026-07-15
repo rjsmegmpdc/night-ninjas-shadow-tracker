@@ -3,8 +3,8 @@
 ## Current state
 
 **Version**: 0.2.0  
-**Branch**: main (clean)  
-**Status**: Feature-complete for core training analysis. Active phase: post-Phase 8 refinement and Garmin integration planning.
+**Branch**: feat/daily-loop (active build)  
+**Status**: Daily-loop stages in build. Active work: Phase 9–11 (ambient sync, manual results fallback, prompt queue, connections panel, daily brief reordering).
 
 ---
 
@@ -152,6 +152,66 @@ The VELOCITY app comprises the following pages, organized by navigation bucket:
 - Multi-block recovery planning
 
 **Status**: Complete.
+
+---
+
+### Phase 9 — Daily-loop foundations
+**What**: Ambient sync on Patrol open; manual results fallback (P0-7): action, detection, dedup guard, form.
+
+**Key files**: 
+- `lib/sync/staleness-pure.ts` — Staleness detection (data freshness logic)
+- `lib/actions/manual-activity.ts` — Manual activity creation and validation
+- `lib/analysis/unlogged-sessions-pure.ts` — Detection of unlogged prescribed sessions
+- `lib/analysis/activity-dedup-pure.ts` — Sync dedup guard + overlap detection
+- `components/patrol/ambient-sync.tsx` — Auto-sync banner on Patrol open
+
+**Features**:
+- Incremental sync fires auto on Patrol open when data is stale
+- Unlogged session detection prompts athlete to log result
+- Manual result form (distance, duration, avg HR optional, RPE, notes)
+- Dedup guard prevents double-counting if device sync arrives later
+- Manual activities flow through identical engine path (compliance, load, assessment)
+
+**Status**: Planned.
+
+---
+
+### Phase 10 — Prompt queue + Journal consolidation
+**What**: Context-completeness reader; skippable prompt stack with defaults; wellness sliders write to journal table; interruption log + wellness merged into one surface.
+
+**Key files**: 
+- `lib/analysis/prompt-context-pure.ts` — Context-completeness detection
+- `components/patrol/prompt-queue.tsx` — Skippable prompt stack with defaults UI
+- `lib/actions/journal.ts` — Journal table writer (wellness, interruptions, reflection)
+- `components/journal/unified-wellness-form.tsx` — Merged wellness + interruption surface
+
+**Features**:
+- Prompt queue assembles missing context (wellness check-in, unlogged session, integration errors)
+- Each prompt skippable; skipping applies athlete's configured default
+- Wellness slider writes directly to journal table
+- Interruption log and wellness tracking in one surface
+- System asks once or uses default — never a dead-end empty page mid-flow
+
+**Status**: Planned.
+
+---
+
+### Phase 11 — Daily brief + Connections
+**What**: Patrol reordered prompts→coach read→next session→goal line; Connections panel under Profile: Strava live, Garmin wired, COROS/Polar placeholders, no nutrition card.
+
+**Key files**: 
+- `components/patrol/patrol-reorder.tsx` — Reordered brief layout (prompts→coach read→next session→goal line)
+- `components/profile/connections-panel.tsx` — Adapter connection status and sync history
+- `lib/actions/adapter-status.ts` — Read layer for adapter health + last-sync
+
+**Features**:
+- Patrol brief reordered by priority: ambient sync banner → prompt queue → coach read → next-session card → goal line
+- Connections panel on Profile lists every adapter (Strava, Garmin, COROS, Polar) with status/last-sync
+- Defaults for absent sources configured in Connections
+- No nutrition card (research parked at P2)
+- UI twin of §5's adapter layer in PRD
+
+**Status**: Planned.
 
 ---
 
