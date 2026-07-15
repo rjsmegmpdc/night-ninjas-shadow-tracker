@@ -47,6 +47,8 @@ const KEY = {
   // Phase 5 - auxiliary strength-work preference
   STRENGTH_MODALITY: 'profile.strength_modality',
   STRENGTH_TARGET_PER_WEEK: 'profile.strength_target_per_week',
+  // Daily-loop Stage 1 plumbing - ambient sync freshness threshold
+  AMBIENT_SYNC_THRESHOLD_HOURS: 'sync.ambient_threshold_hours',
 } as const;
 
 async function get(key: string): Promise<string | null> {
@@ -408,6 +410,24 @@ export async function setStrengthPreferences(p: Partial<StrengthPreferences>): P
     writes.push(set(KEY.STRENGTH_TARGET_PER_WEEK, String(Math.max(0, Math.min(3, Math.round(p.targetPerWeek))))));
   }
   await Promise.all(writes);
+}
+
+/* ============================================================================
+ * Ambient sync threshold (Daily-loop Stage 1 plumbing).
+ *
+ * Freshness window, in hours, before opening Patrol auto-starts an
+ * incremental Strava sync. Persisted but not yet read by AmbientSync -
+ * that component currently relies on the pure staleness function's
+ * built-in 6h default. Wired up when a Settings UI control lands.
+ * ========================================================================== */
+
+export async function getAmbientSyncThresholdHours(): Promise<number> {
+  const v = await getNum(KEY.AMBIENT_SYNC_THRESHOLD_HOURS);
+  return v === null ? 6 : Math.max(1, Math.round(v));
+}
+
+export async function setAmbientSyncThresholdHours(hours: number): Promise<void> {
+  await set(KEY.AMBIENT_SYNC_THRESHOLD_HOURS, String(Math.max(1, Math.round(hours))));
 }
 
 /**

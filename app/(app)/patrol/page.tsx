@@ -4,6 +4,7 @@ import { Card, CardLabel } from '@/components/ui/card';
 import { Stat } from '@/components/ui/stat';
 import { Check, AlertCircle, Minus, MoveDown, Minimize2 } from 'lucide-react';
 import { SyncStatusBanner } from '@/components/sync/sync-status-banner';
+import { AmbientSync } from '@/components/patrol/ambient-sync';
 import { EmptyState } from '@/components/ui/empty-state';
 import { getDb, schema } from '@/lib/db';
 import {
@@ -63,6 +64,7 @@ export default async function PatrolPage() {
   return (
     <div className="px-4 sm:px-8 lg:px-12 py-8 sm:py-10 max-w-7xl mx-auto space-y-10">
       <SyncStatusBanner />
+      {hasData && <AmbientSync />}
 
       {!hasData && (
         <>
