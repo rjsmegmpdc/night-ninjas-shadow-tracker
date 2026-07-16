@@ -3,15 +3,17 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { HeartPulse, ClipboardEdit, AlertTriangle, X } from 'lucide-react';
+import { HeartPulse, ClipboardEdit, AlertTriangle, RefreshCw, X } from 'lucide-react';
 import type {
   PromptItem,
   WellnessCheckinPromptItem,
   UnloggedSessionPromptItem,
   IntegrationErrorPromptItem,
+  ManualOverlapPromptItem,
   WellnessField,
 } from '@/lib/analysis/prompt-context-pure';
 import { logJournalEntry, recordPromptSkip } from '@/lib/actions/journal';
+import { restoreManualActivity } from '@/lib/actions/manual-activity';
 import { ManualResultForm } from '@/components/journal/manual-result-form';
 import { formatBand } from '@/lib/plans/derive';
 import type { SessionTarget } from '@/lib/plans/types';
@@ -45,6 +47,8 @@ export function PromptQueue({ items, todayLocalIso }: { items: PromptItem[]; tod
             return <WellnessCheckinCard key={item.id} item={item} todayLocalIso={todayLocalIso} />;
           case 'unlogged-session':
             return <UnloggedSessionCard key={item.id} item={item} todayLocalIso={todayLocalIso} />;
+          case 'manual-overlap':
+            return <ManualOverlapCard key={item.id} item={item} todayLocalIso={todayLocalIso} />;
           case 'integration-error':
             return <IntegrationErrorCard key={item.id} item={item} todayLocalIso={todayLocalIso} />;
           default:
@@ -317,6 +321,89 @@ function UnloggedSessionCard({
         {item.session.daysAgo === 1 ? '' : 's'} ago, no matching activity
       </div>
       <ManualResultForm defaultDate={item.session.dateIso} />
+    </PromptShell>
+  );
+}
+
+/* ---------- Manual/synced overlap ---------- */
+
+function formatDateNZ(dateIso: string): string {
+  return new Date(dateIso).toLocaleDateString('en-NZ', { day: '2-digit', month: 'short' });
+}
+
+function ManualOverlapCard({
+  item,
+  todayLocalIso,
+}: {
+  item: ManualOverlapPromptItem;
+  todayLocalIso: string;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+
+  const keepSynced = () => {
+    setError(null);
+    setWarning(null);
+    startTransition(async () => {
+      await recordPromptSkip(todayLocalIso, item.id);
+      router.refresh();
+    });
+  };
+
+  const restoreManual = () => {
+    setError(null);
+    setWarning(null);
+    startTransition(async () => {
+      const result = await restoreManualActivity(item.manualActivityId);
+      if (!result.ok) {
+        setError(result.error ?? 'Could not restore.');
+        return;
+      }
+      // A warning still means success — restoreManualActivity already recorded
+      // the skip and revalidated, so surface the note and refresh same as a
+      // clean success.
+      if (result.warning) setWarning(result.warning);
+      router.refresh();
+    });
+  };
+
+  return (
+    <PromptShell
+      tone="neutral"
+      icon={<RefreshCw size={20} strokeWidth={1.5} className="text-bone-mute shrink-0 mt-0.5" />}
+      label="prompt - manual entry superseded"
+      title="Synced run replaced your manual entry"
+      footer={
+        <div className="flex items-center justify-between gap-2 pt-1">
+          {error && <span className="text-xs text-signal-miss">{error}</span>}
+          {!error && warning && <span className="text-xs text-signal-warn">{warning}</span>}
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={restoreManual}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm text-bone-dim hover:text-bone border border-ink-line hover:border-ink-line-bold disabled:opacity-50"
+            >
+              Restore manual
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={keepSynced}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-accent text-ink font-display tracking-wide-display uppercase text-sm hover:bg-accent-hover disabled:opacity-50"
+            >
+              Keep synced
+            </button>
+          </div>
+        </div>
+      }
+    >
+      <div className="font-mono text-xs text-bone-dim leading-relaxed">
+        Your manual entry for {formatDateNZ(item.dateIso)} was superseded by a synced activity, so it
+        isn't double-counted.
+      </div>
     </PromptShell>
   );
 }

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { activitiesOverlap, findOverlappingActivity, type OverlapCandidate } from './activity-dedup-pure';
+import {
+  activitiesOverlap,
+  findOverlappingActivity,
+  buildSupersededUpdate,
+  buildRestoreUpdate,
+  safeParseJson,
+  SUPERSEDED_TYPE,
+  type OverlapCandidate,
+} from './activity-dedup-pure';
 
 function candidate(overrides: Partial<OverlapCandidate> = {}): OverlapCandidate {
   return {
@@ -74,5 +82,79 @@ describe('findOverlappingActivity', () => {
     const incoming = candidate();
     const candidates = [candidate({ localDateIso: '2026-06-01' })];
     expect(findOverlappingActivity(incoming, candidates)).toBeNull();
+  });
+});
+
+describe('buildSupersededUpdate / buildRestoreUpdate (Stage 6 supersede mechanics)', () => {
+  const NOW = '2026-07-16T10:00:00.000Z';
+  const LATER = '2026-07-16T11:00:00.000Z';
+
+  it('buildSupersededUpdate sets the sentinel type and embeds the marker', () => {
+    const update = buildSupersededUpdate('Run', 'strava-123', NOW);
+    expect(update.type).toBe(SUPERSEDED_TYPE);
+    const parsed = safeParseJson(update.rawJson);
+    expect(parsed.supersede).toEqual({
+      originalType: 'Run',
+      supersededBySync: 'strava-123',
+      supersededAt: NOW,
+    });
+  });
+
+  it('is deterministic for identical inputs', () => {
+    expect(buildSupersededUpdate('Run', 'strava-123', NOW)).toEqual(
+      buildSupersededUpdate('Run', 'strava-123', NOW)
+    );
+  });
+
+  it('round-trips: restore recovers the exact original type', () => {
+    const superseded = buildSupersededUpdate('Run', 'strava-123', NOW);
+    const restored = buildRestoreUpdate(superseded.rawJson, LATER);
+    expect(restored?.type).toBe('Run');
+  });
+
+  it('restore preserves the supersede history and adds restoredAt', () => {
+    const superseded = buildSupersededUpdate('Run', 'strava-123', NOW);
+    const restored = buildRestoreUpdate(superseded.rawJson, LATER);
+    const parsed = safeParseJson(restored!.rawJson);
+    expect(parsed.supersede).toEqual({
+      originalType: 'Run',
+      supersededBySync: 'strava-123',
+      supersededAt: NOW,
+      restoredAt: LATER,
+    });
+  });
+
+  it('restore preserves unrelated keys already merged into rawJson (e.g. the dedup marker)', () => {
+    const supersede = buildSupersededUpdate('VirtualRun', 'strava-456', NOW);
+    const mergedRawJson = JSON.stringify({
+      dedup: { overlapsSyncedSourceId: 'strava-456', overlapsSyncedType: 'VirtualRun', detectedAt: NOW },
+      ...safeParseJson(supersede.rawJson),
+    });
+
+    const restored = buildRestoreUpdate(mergedRawJson, LATER);
+    expect(restored?.type).toBe('VirtualRun');
+    const parsed = safeParseJson(restored!.rawJson);
+    expect(parsed.dedup).toEqual({
+      overlapsSyncedSourceId: 'strava-456',
+      overlapsSyncedType: 'VirtualRun',
+      detectedAt: NOW,
+    });
+  });
+
+  it('returns null when rawJson has no supersede marker', () => {
+    expect(buildRestoreUpdate(null, NOW)).toBeNull();
+    expect(buildRestoreUpdate('{}', NOW)).toBeNull();
+    expect(buildRestoreUpdate(JSON.stringify({ dedup: {} }), NOW)).toBeNull();
+  });
+
+  it('returns null on malformed JSON rather than throwing', () => {
+    expect(buildRestoreUpdate('{not json', NOW)).toBeNull();
+  });
+
+  it('safeParseJson tolerates null, malformed, and non-object JSON', () => {
+    expect(safeParseJson(null)).toEqual({});
+    expect(safeParseJson('not json')).toEqual({});
+    expect(safeParseJson('"just a string"')).toEqual({});
+    expect(safeParseJson('{"a":1}')).toEqual({ a: 1 });
   });
 });

@@ -24,28 +24,38 @@
  * The pure math (EWMA, classification, confidence rollup) lives in
  * `./athlete-state-pure.ts` so it can be unit-tested without spinning
  * up SQLite or the server-only runtime.
+ *
+ * Stage 6 (daily loop): the load query excludes activities superseded by a
+ * synced overlap (activities.type = SUPERSEDED_TYPE, D-004 - see
+ * lib/analysis/activity-dedup-pure.ts). Every other type-filtered consumer
+ * in the app (compliance.ts, week-queries.ts, unlogged-sessions-pure.ts)
+ * already excludes the sentinel for free, because it never matches their
+ * 'Run'/'VirtualRun'/etc filters. This query is the one exception -
+ * computeActivityLoad() takes any activity regardless of type - so it needs
+ * an explicit exclusion, which is what previously let a superseded manual
+ * row and its synced replacement both count into CTL/ATL/TSB.
  */
 
 import 'server-only';
-import { gte, lte, and } from 'drizzle-orm';
+import { gte, lte, and, ne } from 'drizzle-orm';
 import { getDb, schema } from '@/lib/db';
 import { computeActivityLoad, type AthleteCalibration } from './load';
+import { SUPERSEDED_TYPE } from './activity-dedup-pure';
 import {
   computeEwma,
   classifyForm,
   rollupConfidence,
   round1,
+  deriveDataFidelity,
   CTL_TIME_CONSTANT,
   ATL_TIME_CONSTANT,
   WINDOW_DAYS,
   type FormClass,
+  type DataFidelity,
 } from './athlete-state-pure';
 
-export type { FormClass };
-
-// Stage 2 (daily loop) - additive re-export, not yet wired into any consumer.
-export { deriveDataFidelity } from './athlete-state-pure';
-export type { DataFidelity } from './athlete-state-pure';
+export type { FormClass, DataFidelity };
+export { deriveDataFidelity };
 
 export interface AthleteState {
   asOfIso: string;
@@ -55,12 +65,21 @@ export interface AthleteState {
   formClass: FormClass;
   confidence: 'calibrated' | 'pace-only' | 'estimated';
   activityCount: number;
+  /**
+   * Data fidelity of the chronologically most recent activity in the query
+   * window (device-recorded vs P0-7 self-reported). Stage 6 - additive; not
+   * a rollup over the whole window, just the freshest input, since that's
+   * what a "how much should I trust this read right now" glance cares about.
+   */
+  dataFidelity: DataFidelity;
 }
 
 interface DailyLoadQuery {
   dailyLoad: Map<string, number>;
   confidenceCounts: { calibrated: number; 'pace-only': number; estimated: number };
   withLoad: number;
+  /** `source` of the chronologically most recent activity in the window. */
+  latestSource: string;
 }
 
 /**
@@ -86,7 +105,8 @@ async function queryDailyLoad(
     .where(
       and(
         gte(schema.activities.startDateLocal, windowStartIso),
-        lte(schema.activities.startDateLocal, today + 'T23:59:59')
+        lte(schema.activities.startDateLocal, today + 'T23:59:59'),
+        ne(schema.activities.type, SUPERSEDED_TYPE)
       )
     )
     .all();
@@ -96,8 +116,15 @@ async function queryDailyLoad(
   const dailyLoad = new Map<string, number>();
   const confidenceCounts = { calibrated: 0, 'pace-only': 0, estimated: 0 };
   let withLoad = 0;
+  let latestSource = activities[0].source;
+  let latestStartDateLocal = activities[0].startDateLocal;
 
   for (const a of activities) {
+    if (a.startDateLocal > latestStartDateLocal) {
+      latestStartDateLocal = a.startDateLocal;
+      latestSource = a.source;
+    }
+
     const load = computeActivityLoad(a, calibration);
     if (!load) continue;
     withLoad++;
@@ -106,7 +133,7 @@ async function queryDailyLoad(
     dailyLoad.set(dayIso, (dailyLoad.get(dayIso) ?? 0) + load.points);
   }
 
-  return { dailyLoad, confidenceCounts, withLoad };
+  return { dailyLoad, confidenceCounts, withLoad, latestSource };
 }
 
 export async function getAthleteState(
@@ -129,6 +156,7 @@ export async function getAthleteState(
     formClass: classifyForm(tsb),
     confidence: rollupConfidence(q.confidenceCounts, q.withLoad),
     activityCount: q.withLoad,
+    dataFidelity: deriveDataFidelity(q.latestSource),
   };
 }
 

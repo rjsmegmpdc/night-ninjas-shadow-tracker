@@ -4,8 +4,10 @@ import {
   wellnessCheckinPromptId,
   unloggedSessionPromptId,
   integrationErrorPromptId,
+  manualOverlapPromptId,
   type PromptContextInput,
   type JournalCompletenessInput,
+  type ManualOverlapInput,
 } from './prompt-context-pure';
 import type { UnloggedSession } from './unlogged-sessions-pure';
 
@@ -25,6 +27,10 @@ function baseInput(overrides: Partial<PromptContextInput> = {}): PromptContextIn
 
 function unlogged(dateIso: string, daysAgo: number): UnloggedSession {
   return { dateIso, session: { label: 'Easy run', type: 'easy' }, daysAgo };
+}
+
+function overlap(manualActivityId: number, dateIso = '2026-06-14', syncedSourceId = 'strava-1'): ManualOverlapInput {
+  return { manualActivityId, dateIso, syncedSourceId };
 }
 
 describe('buildPromptQueue', () => {
@@ -103,6 +109,68 @@ describe('buildPromptQueue', () => {
       'integration-error',
     ]);
     expect(result[2].id).toBe(integrationErrorPromptId('strava'));
+  });
+
+  it('places manual-overlap prompts between unlogged sessions and integration errors', () => {
+    const result = buildPromptQueue(
+      baseInput({
+        journal: { sleepQuality: 7, sleepHours: 7, energy: 7 },
+        unloggedSessions: [unlogged('2026-06-14', 1)],
+        supersededOverlaps: [overlap(42)],
+        integrationErrors: [{ adapterId: 'strava', message: 'Rate limited' }],
+      })
+    );
+    expect(result.map((r) => r.kind)).toEqual([
+      'unlogged-session',
+      'manual-overlap',
+      'integration-error',
+    ]);
+    const middle = result[1];
+    expect(middle.priority).toBeGreaterThan(result[0].priority);
+    expect(middle.priority).toBeLessThan(result[2].priority);
+  });
+
+  it('builds a manual-overlap prompt item with the expected id and defaultOnSkip', () => {
+    const result = buildPromptQueue(
+      baseInput({
+        journal: { sleepQuality: 7, sleepHours: 7, energy: 7 },
+        supersededOverlaps: [overlap(42, '2026-06-13', 'strava-99')],
+      })
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe(manualOverlapPromptId(42));
+    if (result[0].kind === 'manual-overlap') {
+      expect(result[0].manualActivityId).toBe(42);
+      expect(result[0].dateIso).toBe('2026-06-13');
+      expect(result[0].syncedSourceId).toBe('strava-99');
+      expect(result[0].defaultOnSkip).toBe('keep-synced');
+      expect(result[0].skippable).toBe(true);
+    }
+  });
+
+  it('excludes a skipped manual-overlap prompt', () => {
+    const result = buildPromptQueue(
+      baseInput({
+        journal: { sleepQuality: 7, sleepHours: 7, energy: 7 },
+        supersededOverlaps: [overlap(42)],
+        skippedPromptIds: [manualOverlapPromptId(42)],
+      })
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('is backward-compatible when supersededOverlaps is omitted entirely', () => {
+    const journal: JournalCompletenessInput = { sleepQuality: 7, sleepHours: 7, energy: 7 };
+    const input: PromptContextInput = {
+      todayLocalIso: TODAY,
+      journal,
+      unloggedSessions: [],
+      integrationErrors: [],
+      defaults: { wellnessCheckin: {} },
+      skippedPromptIds: [],
+      // supersededOverlaps intentionally omitted
+    };
+    expect(buildPromptQueue(input)).toEqual([]);
   });
 
   it('excludes prompts already skipped today', () => {

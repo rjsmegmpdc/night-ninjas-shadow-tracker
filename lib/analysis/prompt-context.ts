@@ -24,7 +24,7 @@
 
 import 'server-only';
 import { formatInTimeZone } from 'date-fns-tz';
-import { eq } from 'drizzle-orm';
+import { eq, and, gte, lte } from 'drizzle-orm';
 import { getDb, schema } from '@/lib/db';
 import { getUserTimezone, getPromptDefaults } from '@/lib/store/settings';
 import { getSkippedPromptIds } from '@/lib/actions/journal';
@@ -34,11 +34,13 @@ import { resolveWeekContext } from '@/lib/plans/week-context';
 import { addDaysIso } from '@/lib/dates/iso';
 import { getActivitiesInRange } from './week-queries';
 import { findUnloggedSessions, type PrescribedSessionOnDate, type UnloggedSession } from './unlogged-sessions-pure';
+import { SUPERSEDED_TYPE, safeParseJson, type SupersedeMarker } from './activity-dedup-pure';
 import {
   buildPromptQueue,
   type PromptItem,
   type JournalCompletenessInput,
   type IntegrationErrorInput,
+  type ManualOverlapInput,
 } from './prompt-context-pure';
 import type { PlanEngine, PlanParams, WeekTemplate } from '@/lib/plans/types';
 
@@ -169,24 +171,64 @@ async function resolveIntegrationErrors(): Promise<IntegrationErrorInput[]> {
     .map((s) => ({ adapterId: s.id, message: s.detail }));
 }
 
+/**
+ * Stage 6 - manual activity rows superseded by an overlapping synced
+ * activity in the last 7 days (D-004: synced wins by default - see
+ * lib/analysis/activity-dedup-pure.ts). Dismissal ("keep synced") is handled
+ * uniformly by buildPromptQueue's existing `skippedPromptIds` filtering -
+ * every candidate found here is passed through, whether or not it's already
+ * been dismissed today.
+ *
+ * A restored row (lib/actions/manual-activity.ts's restoreManualActivity)
+ * no longer has type=SUPERSEDED_TYPE, so it naturally drops out of this
+ * query without any extra filtering.
+ */
+async function resolveSupersededOverlaps(todayLocalIso: string): Promise<ManualOverlapInput[]> {
+  const fromIso = addDaysIso(todayLocalIso, -7);
+  const rows = await getDb()
+    .select()
+    .from(schema.activities)
+    .where(
+      and(
+        eq(schema.activities.type, SUPERSEDED_TYPE),
+        gte(schema.activities.startDateLocal, fromIso),
+        lte(schema.activities.startDateLocal, todayLocalIso + 'T99:99:99')
+      )
+    )
+    .all();
+
+  return rows.map((row) => {
+    const parsed = safeParseJson(row.rawJson);
+    const supersede = parsed.supersede as Partial<SupersedeMarker> | undefined;
+    return {
+      manualActivityId: row.id,
+      dateIso: row.startDateLocal.slice(0, 10),
+      syncedSourceId: supersede?.supersededBySync ?? '',
+    };
+  });
+}
+
 /** Assemble today's prompt queue for Patrol. Deterministic given DB state at call time. */
 export async function getPromptQueue(): Promise<PromptItem[]> {
   const timezone = await getUserTimezone();
   const todayLocalIso = formatInTimeZone(new Date(), timezone, 'yyyy-MM-dd');
 
-  const [journal, unloggedSessions, integrationErrors, defaults, skippedPromptIds] = await Promise.all([
-    resolveTodaysJournal(todayLocalIso),
-    resolveUnloggedSessions(todayLocalIso),
-    resolveIntegrationErrors(),
-    getPromptDefaults(),
-    getSkippedPromptIds(todayLocalIso),
-  ]);
+  const [journal, unloggedSessions, integrationErrors, supersededOverlaps, defaults, skippedPromptIds] =
+    await Promise.all([
+      resolveTodaysJournal(todayLocalIso),
+      resolveUnloggedSessions(todayLocalIso),
+      resolveIntegrationErrors(),
+      resolveSupersededOverlaps(todayLocalIso),
+      getPromptDefaults(),
+      getSkippedPromptIds(todayLocalIso),
+    ]);
 
   return buildPromptQueue({
     todayLocalIso,
     journal,
     unloggedSessions,
     integrationErrors,
+    supersededOverlaps,
     defaults,
     skippedPromptIds,
   });

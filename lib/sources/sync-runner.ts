@@ -8,7 +8,12 @@ import {
 } from '@/lib/sources/strava-api';
 import { mapStravaActivity } from '@/lib/sources/strava-mapper';
 import { ensureShoesForGearIds } from '@/lib/shoes/ingest';
-import { findOverlappingActivity, type OverlapCandidate } from '@/lib/analysis/activity-dedup-pure';
+import {
+  findOverlappingActivity,
+  buildSupersededUpdate,
+  safeParseJson,
+  type OverlapCandidate,
+} from '@/lib/analysis/activity-dedup-pure';
 import type { SyncJob, NewActivity } from '@/lib/db/schema';
 
 /* ----------------------------------------------------------------------------
@@ -314,28 +319,23 @@ async function upsertActivity(row: ReturnType<typeof mapStravaActivity>): Promis
 }
 
 /* ----------------------------------------------------------------------------
- * Manual/synced overlap dedup guard (Stage 2 - daily loop, additive)
+ * Manual/synced overlap dedup guard (Stage 2, extended Stage 6 - daily loop)
  *
  * A newly-inserted synced Run-type activity may be the same run as an
  * existing manual entry (P0-7's manual-results fallback). We never merge or
- * delete either row here - Wave 2's "supersede" UI owns that decision. This
- * just records the overlap so the UI can surface it, by JSON-merging a
- * `dedup` marker into the manual row's `raw_json` (manual rows never set
- * raw_json themselves, so this is a clean additive write). Best-effort: any
- * failure here must never break the sync.
+ * delete either row - D-004 (locked): the synced version wins by default.
+ * The manual row's `type` is swapped to the SUPERSEDED_TYPE sentinel (see
+ * activity-dedup-pure.ts), which is enough on its own to stop it counting a
+ * second time in every type-filtered consumer (compliance, week stats,
+ * unlogged-session coverage; athlete-state.ts's load query gets an explicit
+ * exclusion since it doesn't filter by type). The existing `dedup` marker
+ * (which fields the overlap for the prompt queue) and the new `supersede`
+ * marker are merged into the same `raw_json` write. Best-effort: any failure
+ * here must never break the sync. The athlete can reverse this via
+ * lib/actions/manual-activity.ts's restoreManualActivity.
  * -------------------------------------------------------------------------- */
 
 const RUN_TYPES = new Set(['Run', 'VirtualRun', 'TrailRun']);
-
-function safeParseJson(raw: string | null): Record<string, unknown> {
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
-}
 
 async function recordManualOverlapIfAny(row: NewActivity): Promise<void> {
   if (!RUN_TYPES.has(row.type)) return;
@@ -370,17 +370,21 @@ async function recordManualOverlapIfAny(row: NewActivity): Promise<void> {
     const match = findOverlappingActivity(incoming, candidates);
     if (!match) return;
 
+    const now = new Date();
+    const supersede = buildSupersededUpdate(match.type, row.sourceId, now.toISOString());
+
     const merged = {
       ...safeParseJson(match.rawJson),
+      ...safeParseJson(supersede.rawJson), // adds the `supersede` marker
       dedup: {
         overlapsSyncedSourceId: row.sourceId,
         overlapsSyncedType: row.type,
-        detectedAt: new Date().toISOString(),
+        detectedAt: now.toISOString(),
       },
     };
     await db
       .update(schema.activities)
-      .set({ rawJson: JSON.stringify(merged), updatedAt: new Date() })
+      .set({ type: supersede.type, rawJson: JSON.stringify(merged), updatedAt: now })
       .where(eq(schema.activities.id, match.id));
   } catch {
     // Best-effort dedup marker — never break the sync over this.

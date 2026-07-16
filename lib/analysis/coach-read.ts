@@ -13,16 +13,24 @@
  * session so an honest "no session recorded" read is still possible. This is
  * a best-effort match on day-of-week, not activity-id — acceptable for a
  * single daily read, same tradeoff evaluateWeek already makes internally.
+ *
+ * Stage 6: the "most recent activity" query excludes superseded rows
+ * (activities.type = SUPERSEDED_TYPE, D-004 - see
+ * lib/analysis/activity-dedup-pure.ts). A superseded manual entry and its
+ * synced replacement can land within minutes of each other; without this
+ * exclusion, ORDER BY startDateLocal DESC could pick the stale superseded
+ * row over the accurate synced one.
  */
 
 import 'server-only';
-import { sql } from 'drizzle-orm';
+import { sql, ne } from 'drizzle-orm';
 import { getDb, schema } from '@/lib/db';
 import { getActivePlan } from '@/lib/plans/active-plan';
 import { resolveWeekContext } from '@/lib/plans/week-context';
 import { getActivitiesInRange } from './week-queries';
 import { evaluateWeek, type SessionCompliance } from './compliance';
 import { getAthleteState } from './athlete-state';
+import { SUPERSEDED_TYPE } from './activity-dedup-pure';
 import { buildCoachRead, type CoachRead, type CoachReadComplianceInput } from './coach-read-pure';
 import type { Activity } from '@/lib/db/schema';
 import type { PlanParams } from '@/lib/plans/types';
@@ -97,6 +105,7 @@ export async function getCoachRead(): Promise<CoachRead | null> {
   const latest = await db
     .select()
     .from(schema.activities)
+    .where(ne(schema.activities.type, SUPERSEDED_TYPE))
     .orderBy(sql`${schema.activities.startDateLocal} DESC`)
     .limit(1)
     .get();

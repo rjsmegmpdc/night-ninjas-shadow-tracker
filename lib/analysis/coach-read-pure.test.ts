@@ -73,6 +73,25 @@ describe('buildCoachRead', () => {
     expect(read.headline).toContain('(self-reported)');
   });
 
+  // P0-7 acceptance: "the coach narrative acknowledges self-reported data" —
+  // must hold regardless of which compliance branch the run lands in, not
+  // just the happy-path 'ok' case above.
+  it('still acknowledges self-reported data when compliance is a miss (P0-7)', () => {
+    const read = buildCoachRead(
+      baseInput({
+        activity: { ...baseInput().activity, isSelfReported: true },
+        compliance: { flag: 'miss', message: 'No qualifying pace found', sessionLabel: 'Wed tempo' },
+      })
+    );
+    expect(read.headline).toContain('(self-reported)');
+    expect(read.detail).toContain('Missed the mark');
+  });
+
+  it('does not mark a device-recorded activity as self-reported', () => {
+    const read = buildCoachRead(baseInput({ activity: { ...baseInput().activity, isSelfReported: false } }));
+    expect(read.headline).not.toContain('(self-reported)');
+  });
+
   it('is deterministic for identical inputs', () => {
     const input = baseInput();
     expect(buildCoachRead(input)).toEqual(buildCoachRead(input));

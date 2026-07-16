@@ -21,7 +21,7 @@ import type { UnloggedSession } from './unlogged-sessions-pure';
  * reconnection) may need to be non-skippable.
  */
 
-export type PromptKind = 'wellness-checkin' | 'unlogged-session' | 'integration-error';
+export type PromptKind = 'wellness-checkin' | 'unlogged-session' | 'integration-error' | 'manual-overlap';
 
 export type WellnessField = 'sleepQuality' | 'sleepHours' | 'energy';
 
@@ -36,6 +36,20 @@ export interface IntegrationErrorInput {
   adapterId: 'strava' | 'garmin' | 'coros' | 'polar';
   /** Human-readable error detail (e.g. "Rate limited, resumes 14:32"). */
   message: string;
+}
+
+/**
+ * A manual activity row superseded by an overlapping synced activity
+ * (D-004: synced wins by default - see lib/analysis/activity-dedup-pure.ts).
+ * The supersede itself already happened at sync time; this prompt just tells
+ * the athlete and offers a restore path.
+ */
+export interface ManualOverlapInput {
+  manualActivityId: number;
+  /** YYYY-MM-DD, local - the date of the (now-superseded) manual entry. */
+  dateIso: string;
+  /** sourceId of the synced activity that superseded it. */
+  syncedSourceId: string;
 }
 
 /** Default values applied to a wellness-checkin field when the athlete skips it. */
@@ -59,6 +73,12 @@ export interface PromptContextInput {
   unloggedSessions: UnloggedSession[];
   /** Current sync/integration error state, one entry per adapter with a problem. */
   integrationErrors: IntegrationErrorInput[];
+  /**
+   * Manual activity rows superseded by a synced overlap, not yet dismissed.
+   * Optional for backward compatibility - omit or pass [] when there are
+   * none (existing callers/tests that predate Stage 6 don't need to change).
+   */
+  supersededOverlaps?: ManualOverlapInput[];
   /** The athlete's configured prompt defaults. */
   defaults: PromptDefaults;
   /** Prompt ids already skipped today (from recordPromptSkip) — excluded from output. */
@@ -94,13 +114,24 @@ export interface IntegrationErrorPromptItem extends BasePromptItem {
   defaultOnSkip: null;
 }
 
+export interface ManualOverlapPromptItem extends BasePromptItem {
+  kind: 'manual-overlap';
+  manualActivityId: number;
+  dateIso: string;
+  syncedSourceId: string;
+  /** D-004: the supersede already happened - skipping just confirms/keeps the synced version. */
+  defaultOnSkip: 'keep-synced';
+}
+
 export type PromptItem =
   | WellnessCheckinPromptItem
   | UnloggedSessionPromptItem
+  | ManualOverlapPromptItem
   | IntegrationErrorPromptItem;
 
 const WELLNESS_PRIORITY = 0;
 const UNLOGGED_SESSION_PRIORITY_BASE = 10;
+const MANUAL_OVERLAP_PRIORITY_BASE = 50;
 const INTEGRATION_ERROR_PRIORITY_BASE = 100;
 
 function missingWellnessFields(journal: JournalCompletenessInput | null): WellnessField[] {
@@ -133,6 +164,10 @@ export function unloggedSessionPromptId(dateIso: string): string {
 
 export function integrationErrorPromptId(adapterId: IntegrationErrorInput['adapterId']): string {
   return `integration-error:${adapterId}`;
+}
+
+export function manualOverlapPromptId(activityId: number): string {
+  return `manual-overlap:${activityId}`;
 }
 
 /**
@@ -179,7 +214,25 @@ export function buildPromptQueue(input: PromptContextInput): PromptItem[] {
     });
   });
 
-  // 3. Integration errors — in the order supplied.
+  // 3. Manual/synced overlaps — the supersede already happened at sync time
+  // (D-004); this just tells the athlete and offers a restore path.
+  const overlaps = input.supersededOverlaps ?? [];
+  overlaps.forEach((overlap, index) => {
+    const id = manualOverlapPromptId(overlap.manualActivityId);
+    if (skipped.has(id)) return;
+    items.push({
+      id,
+      kind: 'manual-overlap',
+      priority: MANUAL_OVERLAP_PRIORITY_BASE + index,
+      skippable: true,
+      manualActivityId: overlap.manualActivityId,
+      dateIso: overlap.dateIso,
+      syncedSourceId: overlap.syncedSourceId,
+      defaultOnSkip: 'keep-synced',
+    });
+  });
+
+  // 4. Integration errors — in the order supplied.
   input.integrationErrors.forEach((err, index) => {
     const id = integrationErrorPromptId(err.adapterId);
     if (skipped.has(id)) return;
