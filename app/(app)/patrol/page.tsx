@@ -7,6 +7,9 @@ import { Check, AlertCircle, Minus, MoveDown, Minimize2 } from 'lucide-react';
 import { SyncStatusBanner } from '@/components/sync/sync-status-banner';
 import { AmbientSync } from '@/components/patrol/ambient-sync';
 import { PromptQueue } from '@/components/patrol/prompt-queue';
+import { CoachReadCard } from '@/components/patrol/coach-read-card';
+import { NextSessionCard } from '@/components/patrol/next-session-card';
+import { GoalLine } from '@/components/patrol/goal-line';
 import { getPromptQueue } from '@/lib/analysis/prompt-context';
 import { getUserTimezone } from '@/lib/store/settings';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -18,12 +21,10 @@ import {
 } from '@/lib/plans/active-plan';
 import { getActivitiesInRange, aggregateWeekStats } from '@/lib/analysis/week-queries';
 import { evaluateWeek, type SessionCompliance } from '@/lib/analysis/compliance';
-import { formatSpk, formatBand } from '@/lib/plans/derive';
-import type { SessionTarget, WeekTemplate } from '@/lib/plans/types';
+import { formatSpk } from '@/lib/plans/derive';
 import { resolveWeekContext } from '@/lib/plans/week-context';
 import { logPageView } from '@/lib/store/instrument';
 import { ShoeNudgeBanner } from '@/components/shoes/shoe-nudge-banner';
-import { RaceCountdown } from '@/components/patrol/race-countdown';
 import { StreakCounter } from '@/components/patrol/streak-counter';
 import { SyncButton } from '@/components/patrol/sync-button';
 import { WeekComplianceChip } from '@/components/patrol/week-compliance-chip';
@@ -200,6 +201,12 @@ async function PatrolDashboard() {
       {/* Stage 3 - daily-loop prompt queue. Silent when nothing's missing. */}
       <PromptQueue items={promptItems} todayLocalIso={todayLocalIso} />
 
+      {/* Stage 4 - PRD 8.5 daily-brief order: coach read -> next session -> goal line,
+          ahead of the existing header/stats/matrix/compliance body below. */}
+      <CoachReadCard />
+      <NextSessionCard session={tonightSession} adaptations={template.adaptations ?? []} />
+      <GoalLine programPhase={programPhase} compliance={compliance} todayDow={todayDow} volumePct={volumePct} />
+
       {/* Header — compact title strip with streak counter + sync on right */}
       <header className="space-y-4 border-b border-ink-line pb-5">
         <div className="flex items-start justify-between gap-4">
@@ -243,27 +250,6 @@ async function PatrolDashboard() {
             <WeekAdherenceChip days={compliance.days} todayDow={todayDow} />
             <StreakCounter />
             <SyncButton />
-          </div>
-        </div>
-
-        {/* Compact race row + book-a-race CTA */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <RaceCountdown />
-          <div className="flex items-center gap-2">
-            <Link
-              href="/race"
-              className="inline-flex items-center gap-1.5 font-display tracking-wide-display uppercase text-xs text-bone-mute hover:text-accent transition-colors border border-ink-line hover:border-accent px-2.5 py-1"
-              title="Race execution plan - pacing, fuelling, carb-load"
-            >
-              Race plan →
-            </Link>
-            <Link
-              href="/calendar#tune-ups"
-              className="inline-flex items-center gap-1.5 font-display tracking-wide-display uppercase text-xs text-bone-mute hover:text-accent transition-colors border border-ink-line hover:border-accent px-2.5 py-1"
-              title="Book a race on Calendar"
-            >
-              + Book a race
-            </Link>
           </div>
         </div>
 
@@ -403,34 +389,6 @@ async function PatrolDashboard() {
               </span>
             </Link>
           </Card>
-
-          {/* Tonight's mission — derived from today's plan */}
-          <Card className="border-accent/40 space-y-4">
-            <CardLabel className="text-accent">
-              tonight's mission
-            </CardLabel>
-            {tonightSession ? (
-              <>
-                <div>
-                  <div className="font-display tracking-wide-display text-2xl uppercase mb-1">
-                    {tonightSession.label}
-                  </div>
-                  <div className="font-mono text-bone-dim text-sm">
-                    {sessionPrescription(tonightSession)}
-                  </div>
-                </div>
-                {tonightSession.notes && (
-                  <div className="font-mono text-xs text-bone-dim leading-relaxed">
-                    {tonightSession.notes}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-bone-dim text-sm">
-                Rest day. Recover.
-              </div>
-            )}
-          </Card>
         </div>
       </div>
 
@@ -484,20 +442,6 @@ function adaptationStyle(kind: string): string {
     default:
       return 'border-bone-mute/40 text-bone-mute';
   }
-}
-
-function sessionPrescription(t: SessionTarget): string {
-  if (t.paceZone && t.distanceKmMin && t.distanceKmMax) {
-    const distRange = t.distanceKmMin === t.distanceKmMax
-      ? `${t.distanceKmMin.toFixed(1)} km`
-      : `${t.distanceKmMin.toFixed(1)}–${t.distanceKmMax.toFixed(1)} km`;
-    return `${distRange} @ ${formatBand(t.paceZone)}`;
-  }
-  if (t.durationMinMin && t.durationMinMax) {
-    return `${t.durationMinMin}–${t.durationMinMax} min`;
-  }
-  if (t.paceZone) return `pace ${formatBand(t.paceZone)}`;
-  return 'see plan';
 }
 
 const DOW_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

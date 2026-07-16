@@ -7,8 +7,8 @@ import { createManualActivity, type ManualActivityResult } from '@/lib/actions/m
 
 /**
  * Stage 2 (daily loop) - P0-7 manual results fallback. Log a run that has no
- * synced data. Templated off the interruption-log form. Standalone: this
- * component is not mounted into any page yet (Wave 2 wires it in).
+ * synced data. Templated off the interruption-log form. Mounted on Patrol as
+ * the unlogged-session prompt's body (components/patrol/prompt-queue.tsx).
  *
  * Date/time default to "now" using the browser's own local Date parts
  * (getFullYear/getMonth/getDate/getHours/getMinutes), not
