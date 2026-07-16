@@ -4,7 +4,7 @@
 
 **Version**: 0.2.0  
 **Branch**: feat/daily-loop (active build)  
-**Status**: Daily loop complete (Phases 9–11: ambient sync, manual results fallback, prompt queue, daily brief, connections panel). Next: UI redesign pass (all screens).
+**Status**: Daily loop complete (Phases 9–11: ambient sync, manual results fallback, prompt queue, daily brief, connections panel). UI redesign shipped on feat/ui-redesign (all screens: sharpened tokens, verdict-first hero cards with evidence chips, ambient chip strip with clickable goal-race chip, StatTile grids, arc statement).
 
 ---
 
