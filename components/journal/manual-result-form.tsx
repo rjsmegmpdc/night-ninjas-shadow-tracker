@@ -33,15 +33,23 @@ function nowLocalTimeHm(): string {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
-export function ManualResultForm() {
+export function ManualResultForm({
+  defaultDate,
+  defaultTime,
+}: {
+  /** Prefills the date field, e.g. a missed prescribed session's date. Falls back to today. */
+  defaultDate?: string;
+  /** Prefills the time field. Falls back to now. */
+  defaultTime?: string;
+} = {}) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<ManualActivityResult | null>(null);
   const [submittedSummary, setSubmittedSummary] = useState<string | null>(null);
 
-  const today = nowLocalDateIso();
-  const now = nowLocalTimeHm();
+  const today = defaultDate ?? nowLocalDateIso();
+  const now = defaultTime ?? nowLocalTimeHm();
 
   const submit = () => {
     if (!formRef.current) return;

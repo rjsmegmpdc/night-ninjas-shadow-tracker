@@ -172,7 +172,7 @@ The VELOCITY app comprises the following pages, organized by navigation bucket:
 - Dedup guard prevents double-counting if device sync arrives later
 - Manual activities flow through identical engine path (compliance, load, assessment)
 
-**Status**: Planned.
+**Status**: Complete.
 
 ---
 
@@ -192,7 +192,7 @@ The VELOCITY app comprises the following pages, organized by navigation bucket:
 - Interruption log and wellness tracking in one surface
 - System asks once or uses default — never a dead-end empty page mid-flow
 
-**Status**: Planned.
+**Status**: Complete.
 
 ---
 

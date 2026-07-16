@@ -1,10 +1,14 @@
 import Link from 'next/link';
 import { eq } from 'drizzle-orm';
+import { formatInTimeZone } from 'date-fns-tz';
 import { Card, CardLabel } from '@/components/ui/card';
 import { Stat } from '@/components/ui/stat';
 import { Check, AlertCircle, Minus, MoveDown, Minimize2 } from 'lucide-react';
 import { SyncStatusBanner } from '@/components/sync/sync-status-banner';
 import { AmbientSync } from '@/components/patrol/ambient-sync';
+import { PromptQueue } from '@/components/patrol/prompt-queue';
+import { getPromptQueue } from '@/lib/analysis/prompt-context';
+import { getUserTimezone } from '@/lib/store/settings';
 import { EmptyState } from '@/components/ui/empty-state';
 import { getDb, schema } from '@/lib/db';
 import {
@@ -160,14 +164,18 @@ async function PatrolDashboard() {
 
   // Phase 2 athlete state surfaces + Phase 3a phase + ramp.
   // All run in parallel.
-  const [athleteState, intensityDist, mileageProg, longRunCheck, programPhase, interruptions] = await Promise.all([
-    getAthleteState({}),
-    getIntensityDistribution(startIso, endIso, {}),
-    checkMileageProgression(startIso),
-    checkLongRunProportion(startIso),
-    getProgramPhase(),
-    getInterruptionsView(),
-  ]);
+  const [athleteState, intensityDist, mileageProg, longRunCheck, programPhase, interruptions, promptItems, timezone] =
+    await Promise.all([
+      getAthleteState({}),
+      getIntensityDistribution(startIso, endIso, {}),
+      checkMileageProgression(startIso),
+      checkLongRunProportion(startIso),
+      getProgramPhase(),
+      getInterruptionsView(),
+      getPromptQueue(),
+      getUserTimezone(),
+    ]);
+  const todayLocalIso = formatInTimeZone(new Date(), timezone, 'yyyy-MM-dd');
   // Ramp depends on programPhase, so it sequences after - but only triggers
   // a real fetch when phase is pre-program.
   const rampPlan = await getRampPlanForActivePeriod(programPhase);
@@ -189,6 +197,9 @@ async function PatrolDashboard() {
 
   return (
     <>
+      {/* Stage 3 - daily-loop prompt queue. Silent when nothing's missing. */}
+      <PromptQueue items={promptItems} todayLocalIso={todayLocalIso} />
+
       {/* Header — compact title strip with streak counter + sync on right */}
       <header className="space-y-4 border-b border-ink-line pb-5">
         <div className="flex items-start justify-between gap-4">

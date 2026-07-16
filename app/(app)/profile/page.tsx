@@ -1,16 +1,17 @@
+import Link from 'next/link';
 import { logPageView } from '@/lib/store/instrument';
 import { getAthleteProfile, getNsHrCalibration, getStrengthPreferences } from '@/lib/store/settings';
 import { Vo2ProfileForm } from '@/components/vo2max/vo2-profile-form';
 import { NsCalibrationCard } from '@/components/vo2max/ns-calibration-card';
 import { StrengthPrefsForm } from '@/components/profile/strength-prefs-form';
-import { WellnessSliderForm } from '@/components/profile/wellness-slider-form';
 import { InjuryLedger } from '@/components/profile/injury-ledger';
 
 /**
  * Phase 5 - athlete profile. The single place the athlete tells the system who
  * they are: body & calibration (reused from R2.5), HR caps, strength
- * preference, a daily wellness check-in, and the injury/illness ledger. Where
- * generic gives way to personal.
+ * preference, and the injury/illness ledger. Where generic gives way to
+ * personal. Daily wellness check-in moved to the Journal page (Stage 3 -
+ * interruption log + wellness merged into one surface).
  */
 export default async function ProfilePage() {
   logPageView('/profile');
@@ -34,7 +35,20 @@ export default async function ProfilePage() {
       <Vo2ProfileForm profile={profile} />
       <NsCalibrationCard calibration={nsCalibration} />
       <StrengthPrefsForm prefs={strength} />
-      <WellnessSliderForm />
+
+      <div className="border border-ink-line rounded-xl p-6 flex items-center justify-between gap-4">
+        <div className="font-mono text-xs text-bone-mute">
+          Daily wellness check-in (sleep, energy, work stress) now lives on
+          the Journal page, alongside the interruption log.
+        </div>
+        <Link
+          href="/journal"
+          className="shrink-0 font-display tracking-wide-display uppercase text-sm text-accent hover:text-accent-hover transition-colors"
+        >
+          Open Journal →
+        </Link>
+      </div>
+
       <InjuryLedger />
     </div>
   );

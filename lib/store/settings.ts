@@ -1,6 +1,7 @@
 import 'server-only';
 import { eq } from 'drizzle-orm';
 import { getDb, schema } from '@/lib/db';
+import type { PromptDefaults, WellnessField } from '@/lib/analysis/prompt-context-pure';
 
 /* ----------------------------------------------------------------------------
  * Settings — typed key/value access against the settings table.
@@ -49,6 +50,11 @@ const KEY = {
   STRENGTH_TARGET_PER_WEEK: 'profile.strength_target_per_week',
   // Daily-loop Stage 1 plumbing - ambient sync freshness threshold
   AMBIENT_SYNC_THRESHOLD_HOURS: 'sync.ambient_threshold_hours',
+  // Daily-loop Stage 3 plumbing - prompt-queue wellness-checkin defaults
+  PROMPT_WELLNESS_SLEEP_QUALITY_DEFAULT: 'prompt.wellnessDefault.sleepQuality',
+  PROMPT_WELLNESS_SLEEP_HOURS_DEFAULT: 'prompt.wellnessDefault.sleepHours',
+  PROMPT_WELLNESS_ENERGY_DEFAULT: 'prompt.wellnessDefault.energy',
+  PROMPT_AUTO_SKIP_WELLNESS_CHECKIN: 'prompt.autoSkipWellnessCheckin',
 } as const;
 
 async function get(key: string): Promise<string | null> {
@@ -459,5 +465,61 @@ export async function seedNsDefaultsOnce(): Promise<void> {
   if (!confNow) writes.push(set(KEY.NS_HR_CONFIDENCE, 'estimated'));
 
   writes.push(set(KEY.NS_DEFAULTS_SEEDED, 'true'));
+  await Promise.all(writes);
+}
+
+/* ============================================================================
+ * Prompt-queue defaults (Daily-loop Stage 3 plumbing).
+ *
+ * Configures what the wellness-checkin prompt (lib/analysis/prompt-context-pure.ts)
+ * applies when the athlete skips it, and whether the prompt should surface at
+ * all. `PromptDefaults`/`WellnessField` are imported (type-only) from that
+ * pure module so the settings layer and the prompt-queue logic never drift
+ * out of sync on shape.
+ * ========================================================================== */
+
+/** Setter input allows explicit `null` to clear a single field's default, vs `undefined` to leave it unchanged. */
+export interface PromptDefaultsUpdate {
+  wellnessCheckin?: Partial<Record<WellnessField, number | null>>;
+  autoSkipWellnessCheckin?: boolean;
+}
+
+const WELLNESS_FIELD_KEY: Record<WellnessField, string> = {
+  sleepQuality: KEY.PROMPT_WELLNESS_SLEEP_QUALITY_DEFAULT,
+  sleepHours: KEY.PROMPT_WELLNESS_SLEEP_HOURS_DEFAULT,
+  energy: KEY.PROMPT_WELLNESS_ENERGY_DEFAULT,
+};
+
+export async function getPromptDefaults(): Promise<PromptDefaults> {
+  const [sleepQuality, sleepHours, energy, autoSkipRaw] = await Promise.all([
+    getNum(KEY.PROMPT_WELLNESS_SLEEP_QUALITY_DEFAULT),
+    getNum(KEY.PROMPT_WELLNESS_SLEEP_HOURS_DEFAULT),
+    getNum(KEY.PROMPT_WELLNESS_ENERGY_DEFAULT),
+    get(KEY.PROMPT_AUTO_SKIP_WELLNESS_CHECKIN),
+  ]);
+
+  const wellnessCheckin: PromptDefaults['wellnessCheckin'] = {};
+  if (sleepQuality !== null) wellnessCheckin.sleepQuality = sleepQuality;
+  if (sleepHours !== null) wellnessCheckin.sleepHours = sleepHours;
+  if (energy !== null) wellnessCheckin.energy = energy;
+
+  return {
+    wellnessCheckin,
+    autoSkipWellnessCheckin: autoSkipRaw === 'true',
+  };
+}
+
+export async function setPromptDefaults(p: PromptDefaultsUpdate): Promise<void> {
+  const writes: Promise<void>[] = [];
+  if (p.wellnessCheckin) {
+    for (const field of Object.keys(p.wellnessCheckin) as WellnessField[]) {
+      const value = p.wellnessCheckin[field];
+      if (value === undefined) continue;
+      writes.push(set(WELLNESS_FIELD_KEY[field], value === null ? '' : String(value)));
+    }
+  }
+  if (p.autoSkipWellnessCheckin !== undefined) {
+    writes.push(set(KEY.PROMPT_AUTO_SKIP_WELLNESS_CHECKIN, p.autoSkipWellnessCheckin ? 'true' : 'false'));
+  }
   await Promise.all(writes);
 }
