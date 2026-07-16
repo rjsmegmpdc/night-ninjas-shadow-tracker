@@ -1,4 +1,4 @@
-## Daily loop — Stages 0–5 ⏳ IN BUILD
+## Daily loop — Stages 0–5 ✅ SHIPPED (2026-07-16, feat/daily-loop stages 0–6)
 
 The next build restructures VELOCITY around "the daily loop" — three UI layers organized by cadence (DAILY: Patrol, WEEKLY: Recon, RARE: Profile) with three consecutive phases landing the full flow.
 
