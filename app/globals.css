@@ -16,10 +16,16 @@
     --nn-ink-line: #2A2A2A;
     --nn-ink-line-bold: #3A3A3A;
 
-    /* Bone - text */
+    /* Bone - text.
+       bone-mute bumped #6E6E6A -> #84847F for WCAG AA (redesign spec §1.1):
+       the old value was ~3.6:1 on ink-shadow / ~3.3:1 on ink-panel, and it's
+       used almost everywhere sub-12px (nn-caps, chip subtext, micro-labels),
+       so it never qualified for the relaxed large-text 3:1 exception. New
+       value clears ~4.7:1 against ink-panel, the lightest/binding surface.
+       Pure token edit - no component changes needed. */
     --nn-bone: #F5F5F0;
     --nn-bone-dim: #A5A5A0;
-    --nn-bone-mute: #6E6E6A;
+    --nn-bone-mute: #84847F;
 
     /* Accent - VELOCITY orange. Active state, primary CTA, current focus. */
     --nn-accent: #FF5F00;

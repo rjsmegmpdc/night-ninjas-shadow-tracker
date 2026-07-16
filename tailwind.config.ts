@@ -56,13 +56,19 @@ const config: Config = {
       borderRadius: {
         // VELOCITY uses soft-rounded surfaces. The previous brutalist
         // 2px-max rule is retired.
+        //
+        // Redesign spec §1.3 (one notch tighter, still rounded — not a
+        // return to the 2px-brutalist rule): card/button/input 12px->10px,
+        // pill/chip 8px->6px, hero panel/modal 16px->14px. Token-only edit —
+        // class names (rounded-lg/xl/2xl/md) are unchanged so existing
+        // markup keeps working; only the underlying px values moved.
         none: '0',
         sm: '4px',
-        DEFAULT: '8px',
-        md: '8px',
-        lg: '12px',     // buttons, inputs
-        xl: '12px',     // cards (DESIGN.md spec)
-        '2xl': '16px',  // hero panels, modals
+        DEFAULT: '6px',
+        md: '6px',      // pills, chips
+        lg: '10px',     // buttons, inputs
+        xl: '10px',     // cards
+        '2xl': '14px',  // hero panels, modals
         full: '9999px', // circles only (avatars, dots)
       },
       boxShadow: {

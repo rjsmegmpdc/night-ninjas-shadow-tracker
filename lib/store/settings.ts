@@ -55,6 +55,8 @@ const KEY = {
   PROMPT_WELLNESS_SLEEP_HOURS_DEFAULT: 'prompt.wellnessDefault.sleepHours',
   PROMPT_WELLNESS_ENERGY_DEFAULT: 'prompt.wellnessDefault.energy',
   PROMPT_AUTO_SKIP_WELLNESS_CHECKIN: 'prompt.autoSkipWellnessCheckin',
+  // G-005 (UI redesign) - arc statement: athlete-authored motivation one-liner
+  ARC_STATEMENT: 'goal.arcStatement',
 } as const;
 
 async function get(key: string): Promise<string | null> {
@@ -522,4 +524,34 @@ export async function setPromptDefaults(p: PromptDefaultsUpdate): Promise<void> 
     writes.push(set(KEY.PROMPT_AUTO_SKIP_WELLNESS_CHECKIN, p.autoSkipWellnessCheckin ? 'true' : 'false'));
   }
   await Promise.all(writes);
+}
+
+/* ============================================================================
+ * Arc statement (G-005 UI redesign, Wave 3 - DESIGN-SPEC.md §2.5).
+ *
+ * A nullable, athlete-authored one-line motivation caption — "here's my
+ * goal, here's why it matters" — shown as a quiet italic mono caption under
+ * Patrol's (and Race's) page title, and edited on Profile. Deliberately
+ * plain free text, not derived from any engine data - this is the one piece
+ * of copy on those screens the athlete wrote themselves.
+ *
+ * Empty string is stored as the same "unset" state as null (same convention
+ * as getClubParkrunId/getGarminLastSyncAt elsewhere in this file), so a
+ * blank submit clears the caption rather than leaving a stray empty row
+ * value. Capped at ARC_STATEMENT_MAX_LENGTH — the primary length guard is
+ * lib/actions/arc-statement.ts's validation (which rejects and reports back
+ * to the athlete); this cap is a silent defensive fallback for any other
+ * caller that bypasses that action.
+ * ========================================================================== */
+
+export const ARC_STATEMENT_MAX_LENGTH = 140;
+
+export async function getArcStatement(): Promise<string | null> {
+  const v = await get(KEY.ARC_STATEMENT);
+  return v === null || v === '' ? null : v;
+}
+
+export async function setArcStatement(value: string | null): Promise<void> {
+  const trimmed = value?.trim() ?? '';
+  await set(KEY.ARC_STATEMENT, trimmed.slice(0, ARC_STATEMENT_MAX_LENGTH));
 }
