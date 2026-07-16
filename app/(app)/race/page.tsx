@@ -1,5 +1,6 @@
 import { logPageView } from '@/lib/store/instrument';
 import { getRaceExecution } from '@/lib/race/execution';
+import { getArcStatement } from '@/lib/store/settings';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PacePlanCard } from '@/components/race/pace-plan-card';
 import { FuelingCard } from '@/components/race/fueling-card';
@@ -17,6 +18,10 @@ import { formatDuration } from '@/lib/plans/derive';
 export default async function RacePage() {
   logPageView('/race');
   const view = await getRaceExecution();
+  // Same quiet italic mono caption as Patrol's page-title placement (spec
+  // §2.5/§3.6) - reinforces the athlete's own stated stakes wherever the
+  // countdown appears. Silent when unset.
+  const arcStatement = await getArcStatement();
 
   return (
     <div className="px-4 sm:px-8 lg:px-12 py-8 sm:py-10 max-w-5xl mx-auto space-y-8">
@@ -27,6 +32,9 @@ export default async function RacePage() {
           Pacing, fuelling and carb-loading for your goal race - computed from your
           target time and weight. Plan the execution, not just the training.
         </div>
+        {arcStatement && (
+          <div className="font-mono text-xs text-bone-mute italic pt-1">&ldquo;{arcStatement}&rdquo;</div>
+        )}
       </header>
 
       {!view ? (
@@ -38,7 +46,13 @@ export default async function RacePage() {
         />
       ) : (
         <>
-          <div className="border border-accent/40 rounded-xl p-6 flex flex-wrap items-baseline justify-between gap-4">
+          {/* Goal-race summary strip - miniature of Patrol's goal-race chip
+              countdown. Not a hero card (Race has none - it's a planning
+              screen, not a daily-verdict one); the accent border is a
+              modest emphasis, and the countdown figure stays at this
+              existing size rather than scaling up (spec §3.6: no
+              hero-scaled countdown anywhere). */}
+          <div className="bg-ink-shadow border border-accent/40 rounded-xl p-6 flex flex-wrap items-baseline justify-between gap-4">
             <div>
               <div className="font-display tracking-wide-display uppercase text-2xl text-bone">{view.race.name}</div>
               <div className="font-mono text-xs text-bone-mute mt-1">

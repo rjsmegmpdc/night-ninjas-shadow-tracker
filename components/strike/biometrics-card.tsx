@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { BiometricSummary } from '@/lib/analysis/biometrics';
 import type { MetricTrend } from '@/lib/analysis/biometrics-pure';
+import { StatTile, type StatTileTone } from '@/components/ui/stat-tile';
 
 /**
  * Phase 12 surfacing - biometric overview on Athlete State.
@@ -29,16 +30,21 @@ function direction(t: MetricTrend): Direction {
   return 'flat';
 }
 
-function arrow(dir: Direction): string {
-  return dir === 'up' ? '↑' : dir === 'down' ? '↓' : '→';
-}
-
-function toneFor(dir: Direction, polarity: Polarity): string {
-  if (polarity === 'neutral' || dir === 'flat') return 'text-bone-mute';
+/** Deterministic interpretation word for a biometric trend (spec §2.2) -
+ * mirrors the colour the old direction-arrow already used: "good" per the
+ * metric's polarity is ok, "bad" is warn, flat/no-data/neutral-polarity is
+ * neutral. */
+function statWord(trend: MetricTrend, polarity: Polarity): { word: string; tone: StatTileTone } {
+  if (trend.latest === null) return { word: 'no data', tone: 'neutral' };
+  const dir = direction(trend);
+  if (polarity === 'neutral') {
+    return dir === 'flat' ? { word: 'steady', tone: 'neutral' } : { word: dir === 'up' ? 'rising' : 'falling', tone: 'neutral' };
+  }
+  if (dir === 'flat') return { word: 'steady', tone: 'neutral' };
   const good =
     (polarity === 'higher-better' && dir === 'up') ||
     (polarity === 'lower-better' && dir === 'down');
-  return good ? 'text-signal-ok' : 'text-signal-warn';
+  return good ? { word: 'improving', tone: 'ok' } : { word: 'declining', tone: 'warn' };
 }
 
 function Sparkline({ series, polarity }: { series: MetricTrend['series']; polarity: Polarity }) {
@@ -77,7 +83,12 @@ function Sparkline({ series, polarity }: { series: MetricTrend['series']; polari
   );
 }
 
-function StatTile({
+/** One biometric cell — thin wrapper around the shared StatTile (spec
+ * §2.2/§3.13) that keeps this card's own bordered/rounded tile look
+ * (rather than the flat hairline-grid cell StatTile defaults to) and its
+ * gap-aware Sparkline, which handles missing days the shared default
+ * sparkline doesn't. */
+function BiometricTile({
   label, value, unit, trend, polarity, precision = 0,
 }: {
   label: string;
@@ -87,25 +98,17 @@ function StatTile({
   polarity: Polarity;
   precision?: number;
 }) {
-  const dir = direction(trend);
+  const { word, tone } = statWord(trend, polarity);
   return (
-    <div className="bg-ink-shadow border border-ink-line rounded-lg p-4 space-y-2">
-      <div className="flex items-baseline justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-widest text-bone-mute">{label}</span>
-        {value !== null && (
-          <span className={`font-mono text-xs ${toneFor(dir, polarity)}`}>{arrow(dir)}</span>
-        )}
-      </div>
-      {value !== null ? (
-        <div className="font-display text-3xl text-bone tabular-nums leading-none">
-          {value.toFixed(precision)}
-          <span className="text-sm text-bone-mute ml-1">{unit}</span>
-        </div>
-      ) : (
-        <div className="font-display text-3xl text-bone-mute tabular-nums leading-none">--</div>
-      )}
-      <Sparkline series={trend.series} polarity={polarity} />
-    </div>
+    <StatTile
+      label={label}
+      value={value !== null ? value.toFixed(precision) : '--'}
+      unit={value !== null ? unit : undefined}
+      word={word}
+      tone={tone}
+      sparkline={<Sparkline series={trend.series} polarity={polarity} />}
+      className="bg-ink-shadow border border-ink-line rounded-lg p-4"
+    />
   );
 }
 
@@ -117,7 +120,7 @@ function formatSleep(seconds: number | null): number | null {
 export function BiometricsCard({ summary }: { summary: BiometricSummary }) {
   if (!summary.hasAnyData) {
     return (
-      <div className="border border-ink-line rounded-xl p-6 space-y-3">
+      <div className="nn-card p-6 space-y-3">
         <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">
           biometrics - last {summary.windowDays} days
         </div>
@@ -146,7 +149,7 @@ export function BiometricsCard({ summary }: { summary: BiometricSummary }) {
   };
 
   return (
-    <div className="border border-ink-line rounded-xl p-6 space-y-4">
+    <div className="nn-card p-6 space-y-4">
       <div className="flex items-baseline justify-between">
         <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">
           biometrics - last {summary.windowDays} days
@@ -157,12 +160,12 @@ export function BiometricsCard({ summary }: { summary: BiometricSummary }) {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-        <StatTile label="resting HR" value={summary.rhr.latest} unit="bpm" trend={summary.rhr} polarity="lower-better" />
-        <StatTile label="HRV" value={summary.hrv.latest} unit="ms" trend={summary.hrv} polarity="higher-better" />
-        <StatTile label="sleep" value={sleepHours.latest} unit="h" trend={sleepHours} polarity="higher-better" precision={1} />
-        <StatTile label="body battery" value={summary.bodyBattery.latest} unit="" trend={summary.bodyBattery} polarity="higher-better" />
-        <StatTile label="stress" value={summary.stress.latest} unit="" trend={summary.stress} polarity="lower-better" />
-        <StatTile label="weight" value={summary.weight.latest} unit="kg" trend={summary.weight} polarity="neutral" precision={1} />
+        <BiometricTile label="resting HR" value={summary.rhr.latest} unit="bpm" trend={summary.rhr} polarity="lower-better" />
+        <BiometricTile label="HRV" value={summary.hrv.latest} unit="ms" trend={summary.hrv} polarity="higher-better" />
+        <BiometricTile label="sleep" value={sleepHours.latest} unit="h" trend={sleepHours} polarity="higher-better" precision={1} />
+        <BiometricTile label="body battery" value={summary.bodyBattery.latest} unit="" trend={summary.bodyBattery} polarity="higher-better" />
+        <BiometricTile label="stress" value={summary.stress.latest} unit="" trend={summary.stress} polarity="lower-better" />
+        <BiometricTile label="weight" value={summary.weight.latest} unit="kg" trend={summary.weight} polarity="neutral" precision={1} />
       </div>
 
       <p className="font-mono text-[10px] text-bone-mute leading-relaxed pt-1">

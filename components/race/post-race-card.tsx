@@ -12,7 +12,7 @@ export function PostRaceCard({ postRace, raceName }: { postRace: PostRaceView; r
   const { recovery, daysSinceRace, debrief } = postRace;
 
   return (
-    <div className="border border-accent/40 rounded-xl p-6 space-y-6">
+    <div className="bg-ink-shadow border border-accent/40 rounded-xl p-6 space-y-6">
       <div className="flex items-baseline justify-between gap-3">
         <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">post-race recovery</div>
         <div className="font-mono text-xs text-bone-dim whitespace-nowrap">

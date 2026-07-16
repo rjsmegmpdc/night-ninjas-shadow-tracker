@@ -18,7 +18,7 @@ export function MonthlyVolumeCard({ monthly }: { monthly: MonthVolume[] }) {
   const latest = monthly[monthly.length - 1];
 
   return (
-    <div className="border border-ink-line rounded-xl p-6 space-y-4">
+    <div className="nn-card p-6 space-y-4">
       <div className="flex items-baseline justify-between">
         <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">
           monthly volume - {monthly.length} months
@@ -71,7 +71,7 @@ const ZONE_ORDER: Zone5[] = ['easy', 'marathon', 'threshold', 'interval', 'repet
 export function ZoneDistributionCard({ zones }: { zones: ZoneDistribution }) {
   if (zones.totalMin === 0) {
     return (
-      <div className="border border-ink-line rounded-xl p-6 space-y-3">
+      <div className="nn-card p-6 space-y-3">
         <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">
           intensity distribution - 28 days
         </div>
@@ -81,7 +81,7 @@ export function ZoneDistributionCard({ zones }: { zones: ZoneDistribution }) {
   }
 
   return (
-    <div className="border border-ink-line rounded-xl p-6 space-y-4">
+    <div className="nn-card p-6 space-y-4">
       <div className="flex items-baseline justify-between">
         <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">
           intensity distribution - 28 days
@@ -132,7 +132,7 @@ export function ZoneDistributionCard({ zones }: { zones: ZoneDistribution }) {
 export function LoadRecoveryCard({ load }: { load: LoadPoint[] }) {
   if (load.length === 0 || load.every((p) => p.ctl === 0 && p.atl === 0)) {
     return (
-      <div className="border border-ink-line rounded-xl p-6 space-y-3">
+      <div className="nn-card p-6 space-y-3">
         <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">
           load vs recovery - 8 weeks
         </div>
@@ -153,7 +153,7 @@ export function LoadRecoveryCard({ load }: { load: LoadPoint[] }) {
   const latest = load[load.length - 1];
 
   return (
-    <div className="border border-ink-line rounded-xl p-6 space-y-4">
+    <div className="nn-card p-6 space-y-4">
       <div className="flex items-baseline justify-between">
         <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">
           load vs recovery - 8 weeks

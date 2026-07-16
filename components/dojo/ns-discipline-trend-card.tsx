@@ -65,7 +65,7 @@ export function NsDisciplineTrendCard({ data }: Props) {
   }));
 
   return (
-    <div className="border border-ink-line rounded-xl p-6 space-y-5">
+    <div className="nn-card p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <TrendingUp size={18} strokeWidth={1.5} className="text-accent" />

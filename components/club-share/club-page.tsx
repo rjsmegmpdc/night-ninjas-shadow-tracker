@@ -23,6 +23,7 @@ import {
   type GenerateShareResult,
 } from '@/lib/actions/generate-club-share';
 import { ClubShareTermsModal } from './terms-modal';
+import { VerdictCard } from '@/components/ui/verdict-card';
 import type { ClubWindowDefault } from '@/lib/store/settings';
 
 interface Props {
@@ -79,7 +80,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-ink-shadow border border-ink-line rounded-xl shadow-card p-6 space-y-5">
+    <div className="nn-card p-6 space-y-5">
       <div className="flex items-start gap-3">
         <Icon size={20} strokeWidth={1.5} className="text-accent shrink-0 mt-1" />
         <div className="flex-1">
@@ -485,22 +486,27 @@ export function ClubPage({
           </button>
         </div>
 
-        {/* Result display */}
+        {/* Result display — shared verdict-card shell (spec §3.11) for visual
+            continuity with the rest of the app's decision/status cards. Not
+            elevated: Club has no hero card, this is a status readout, not a
+            pending decision, so no decisionRow either. */}
         {result && (
-          <div
-            className={
-              'rounded-lg p-3 text-sm space-y-2 ' +
-              (result.ok
-                ? 'bg-signal-ok/10 border border-signal-ok/40'
-                : 'bg-signal-miss/10 border border-signal-miss/40')
+          <VerdictCard
+            tone={result.ok ? 'ok' : 'miss'}
+            icon={
+              result.ok
+                ? <CheckCircle2 size={22} strokeWidth={1.5} />
+                : <XCircle size={22} strokeWidth={1.5} />
+            }
+            eyebrow="publish result"
+            headline={
+              result.ok
+                ? `Generated ${result.sessionCount} pending session${result.sessionCount === 1 ? '' : 's'}.`
+                : result.error ?? 'Unknown error.'
             }
           >
-            {result.ok ? (
-              <>
-                <div className="text-signal-ok font-medium">
-                  Generated {result.sessionCount} pending session
-                  {result.sessionCount === 1 ? '' : 's'}
-                </div>
+            {result.ok && (
+              <div className="space-y-2">
                 {result.githubPublished && result.githubUrl && (
                   <div className="flex items-center gap-2 font-mono text-[11px] text-bone-dim">
                     <CheckCircle2 size={12} strokeWidth={1.5} className="text-signal-ok shrink-0" />
@@ -531,11 +537,9 @@ export function ClubPage({
                     <span className="text-bone-mute">archived:</span> {result.archivedPath}
                   </div>
                 </div>
-              </>
-            ) : (
-              <div className="text-signal-miss">{result.error ?? 'Unknown error'}</div>
+              </div>
             )}
-          </div>
+          </VerdictCard>
         )}
       </SectionCard>
 

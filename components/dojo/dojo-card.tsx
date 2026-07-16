@@ -1,6 +1,7 @@
 import type { Dojo, Level } from '@/lib/plans/types';
 import { getEngine } from '@/lib/plans/index';
 import { getDojoCardMeta } from '@/lib/plans/dojo-card-meta';
+import { cn } from '@/lib/utils';
 
 /**
  * DojoCard - one card in the picker.
@@ -14,9 +15,12 @@ import { getDojoCardMeta } from '@/lib/plans/dojo-card-meta';
  *   - Feature list (mono, line-by-line)
  *   - CTA button (filled accent if selected, ghost otherwise)
  *
- * Selected state: filled accent ribbon at top + filled accent CTA at
- * bottom. No border lift, no shadow, no ring - matching the brand's
- * "hard edges, no glassmorphism" rule.
+ * Selected state (redesign spec §1.4 - dojo picker's chosen card is the
+ * named example of a genuine nn-card-active selection state): accent
+ * border + inner glow, same ingredients as `nn-card-active` elsewhere,
+ * applied without the rounded corners since this card sits in the
+ * hairline picker grid (gap-px bg-ink-line) rather than as a
+ * free-standing card.
  *
  * Level prop: drives the hero stat (entryWeeklyLoadKm by level).
  * Custom returns 0 - we render "flexible" instead of a number.
@@ -43,7 +47,12 @@ export function DojoCard({
   const heroLabel = entryKm > 0 ? `${level} entry load` : 'choose your own';
 
   return (
-    <div className="flex flex-col h-full bg-ink-shadow border border-ink-line">
+    <div
+      className={cn(
+        'flex flex-col h-full bg-ink-shadow border transition-colors',
+        selected ? 'border-accent shadow-accent-inset' : 'border-ink-line'
+      )}
+    >
       {/* Ribbon - optional, accent for distinguishing dojos.
           Always renders the same height area so cards align. */}
       <div

@@ -24,7 +24,7 @@ const TIER_ORDER: InsightTier[] = ['trend', 'context', 'outlier'];
 export function Vo2InsightsCard({ report }: { report: Vo2InsightReport }) {
   if (!report.hasInsights) {
     return (
-      <div className="border border-ink-line rounded-xl p-6 space-y-2">
+      <div className="nn-card p-6 space-y-2">
         <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">insights</div>
         <p className="text-bone-dim text-sm leading-relaxed">
           Record at least two VO2 max readings and insights on your trend,

@@ -20,7 +20,7 @@ export function PacePlanCard({ pacing }: { pacing: Record<PaceStrategy, PacePlan
   const plan = pacing[strat];
 
   return (
-    <div className="border border-ink-line rounded-xl p-6 space-y-4">
+    <div className="nn-card p-6 space-y-4">
       <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">pacing strategy</div>
 
       <div className="flex gap-2 flex-wrap">

@@ -4,13 +4,14 @@ import {
   getWeeklyIntensityHistory,
   getWeeklyMileageHistory,
 } from '@/lib/analysis/weekly-history';
-import { checkLongRunProportion } from '@/lib/analysis/progression';
+import { checkLongRunProportion, type ProgressionSeverity } from '@/lib/analysis/progression';
 import { currentWeekRange } from '@/lib/plans/active-plan';
 import { AthleteStateCard } from '@/components/strike/athlete-state-card';
 import { IntensityHistoryCard } from '@/components/strike/intensity-history-card';
 import { MileageTrajectoryCard } from '@/components/strike/mileage-trajectory-card';
 import { BiometricsCard } from '@/components/strike/biometrics-card';
 import { getBiometricSummary } from '@/lib/analysis/biometrics';
+import { StatTile, type StatTileTone } from '@/components/ui/stat-tile';
 
 /**
  * Strike - athlete state visualisation.
@@ -68,7 +69,7 @@ export default async function StrikePage() {
       {/* R2.5 - VO2 max entry point */}
       <a
         href="/vo2max"
-        className="block border border-ink-line rounded-xl p-5 hover:border-ink-line-bold transition-colors group"
+        className="block bg-ink-shadow border border-ink-line rounded-xl p-5 hover:border-ink-line-bold transition-colors group"
       >
         <div className="flex items-center justify-between">
           <div>
@@ -85,47 +86,57 @@ export default async function StrikePage() {
         <MileageTrajectoryCard history={mileageHistory} />
       </div>
 
-      {/* Long-run snapshot - this week's long run proportion */}
+      {/* Long-run snapshot - this week's long run proportion.
+          Redesign spec §1.2/§3.13 - extends the hairline stat-grid pattern
+          (already used on Patrol's top row / Recon's aggregate row) here in
+          place of the old ad hoc 3-number grid, using the shared StatTile.
+          Proportion and growth are the two direct inputs to the engine's
+          `severity` classification, so both tiles surface that same
+          engine-owned word; the raw long-run distance has no such
+          classification (severity is a function of proportion + growth, not
+          the absolute km), so its word stays purely descriptive. */}
       {longRunCheck && (
-        <div className="border border-ink-line p-6 space-y-3">
-          <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">
-            long run - this week
+        <div className="space-y-4">
+          <span className="nn-caps text-accent">long run - this week</span>
+          <div className="grid grid-cols-3 gap-px bg-ink-line border border-ink-line">
+            <StatTile
+              label="long run"
+              value={longRunCheck.longRunKm}
+              unit="km"
+              word="this week"
+              tone="neutral"
+            />
+            <StatTile
+              label="of weekly total"
+              value={longRunCheck.proportionPct.toFixed(0)}
+              unit="%"
+              {...severityInterpretation(longRunCheck.severity)}
+            />
+            <StatTile
+              label="vs 2 weeks ago"
+              value={`${longRunCheck.growthVs2WeeksKm >= 0 ? '+' : ''}${longRunCheck.growthVs2WeeksKm.toFixed(1)}`}
+              unit="km"
+              {...severityInterpretation(longRunCheck.severity)}
+            />
           </div>
-          <div className="grid grid-cols-3 gap-6">
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-bone-mute">
-                long run
-              </div>
-              <div className="font-display text-3xl text-bone tabular-nums leading-none">
-                {longRunCheck.longRunKm}
-                <span className="text-base text-bone-mute ml-1">km</span>
-              </div>
-            </div>
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-bone-mute">
-                of weekly total
-              </div>
-              <div className="font-display text-3xl text-bone tabular-nums leading-none">
-                {longRunCheck.proportionPct.toFixed(0)}
-                <span className="text-base text-bone-mute ml-1">%</span>
-              </div>
-            </div>
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-bone-mute">
-                vs 2 weeks ago
-              </div>
-              <div className="font-display text-3xl text-bone tabular-nums leading-none">
-                {longRunCheck.growthVs2WeeksKm >= 0 ? '+' : ''}
-                {longRunCheck.growthVs2WeeksKm.toFixed(1)}
-                <span className="text-base text-bone-mute ml-1">km</span>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-ink-line pt-3 font-mono text-[11px] leading-relaxed text-bone-dim">
+          <div className="font-mono text-[11px] leading-relaxed text-bone-dim">
             {longRunCheck.message}
           </div>
         </div>
       )}
     </div>
   );
+}
+
+/** Deterministic word for the engine-owned `ProgressionSeverity` enum
+ * (spec §2.2) - reused verbatim, not a new judgement invented here. */
+function severityInterpretation(severity: ProgressionSeverity): { word: string; tone: StatTileTone } {
+  switch (severity) {
+    case 'ok':
+      return { word: 'on track', tone: 'ok' };
+    case 'caution':
+      return { word: 'watch', tone: 'warn' };
+    case 'risk':
+      return { word: 'risk', tone: 'miss' };
+  }
 }

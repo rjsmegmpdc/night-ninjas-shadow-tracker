@@ -55,7 +55,7 @@ export function ProgramShapeCard({
   const microByDow = new Map(micro.map((m) => [m.dow, m]));
 
   return (
-    <div className="border border-ink-line rounded-xl p-6 space-y-5 max-w-3xl">
+    <div className="nn-card p-6 space-y-5 max-w-3xl">
       <div className="flex items-center justify-between">
         <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">
           program shape - {dojoName}

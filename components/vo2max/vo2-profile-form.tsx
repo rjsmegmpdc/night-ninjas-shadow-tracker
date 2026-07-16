@@ -29,7 +29,7 @@ export function Vo2ProfileForm({ profile }: { profile: AthleteProfile }) {
   };
 
   return (
-    <div className="border border-ink-line rounded-xl p-6 space-y-4">
+    <div className="nn-card p-6 space-y-4">
       <div className="flex items-center gap-2">
         <User size={16} strokeWidth={1.5} className="text-bone-mute" />
         <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">

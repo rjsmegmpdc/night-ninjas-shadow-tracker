@@ -1,11 +1,18 @@
 import type { Vo2View } from '@/lib/analysis/vo2max';
 import { vo2FitnessBand } from '@/lib/analysis/vo2max-pure';
 import type { AthleteProfile } from '@/lib/store/settings';
+import { StatTile, type StatTileTone } from '@/components/ui/stat-tile';
 
 /**
  * R2.5 - the VO2 max overview: current value (with source + fitness band)
  * and a cross-source trend line. Observed-only - a note makes clear this
  * doesn't change training paces in v1.
+ *
+ * Redesign spec §2.2/§3.9 - the current-value number has a trend (the
+ * cross-source series), so it adopts StatTile with a deterministic
+ * interpretation word; the source-dot + date + band line stays as its own
+ * row above since it carries a colour-coded detail StatTile's plain-text
+ * `target` slot can't express.
  */
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -22,10 +29,21 @@ const SOURCE_DOT: Record<string, string> = {
   device: 'bg-bone-mute',
 };
 
+/** Deterministic, engine-owned interpretation word for the since-first delta
+ * (spec §2.2) - mirrors the colour the old right-aligned delta figure
+ * already used: positive = ok (improving), negative = warn (declining),
+ * flat/no baseline = neutral (steady). */
+function deltaInterpretation(delta: number | null): { word: string; tone: StatTileTone } {
+  if (delta === null) return { word: 'no baseline', tone: 'neutral' };
+  if (delta > 0) return { word: 'improving', tone: 'ok' };
+  if (delta < 0) return { word: 'declining', tone: 'warn' };
+  return { word: 'steady', tone: 'neutral' };
+}
+
 export function Vo2TrendCard({ view, profile }: { view: Vo2View; profile: AthleteProfile }) {
   if (view.current === null) {
     return (
-      <div className="border border-ink-line rounded-xl p-6 space-y-3">
+      <div className="nn-card p-6 space-y-3">
         <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">
           VO2 max
         </div>
@@ -43,34 +61,29 @@ export function Vo2TrendCard({ view, profile }: { view: Vo2View; profile: Athlet
       ? vo2FitnessBand(view.current, profile.age, profile.sex)
       : null;
 
+  const { word, tone } = deltaInterpretation(view.deltaFromFirst);
+  const target =
+    view.deltaFromFirst !== null
+      ? `${view.deltaFromFirst >= 0 ? '+' : ''}${view.deltaFromFirst.toFixed(1)} since first`
+      : undefined;
+
   return (
-    <div className="border border-ink-line rounded-xl p-6 space-y-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">
-            VO2 max - current
-          </div>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="font-display text-5xl text-bone tabular-nums leading-none">{view.current.toFixed(1)}</span>
-            <span className="font-mono text-sm text-bone-mute">ml/kg/min</span>
-          </div>
-          <div className="flex items-center gap-2 mt-2 font-mono text-[11px] text-bone-dim">
-            <span className={`inline-block w-2 h-2 rounded-sm ${SOURCE_DOT[view.currentSource ?? 'device']}`} />
-            {SOURCE_LABEL[view.currentSource ?? 'device']} · {view.currentDateIso}
-            {band && <span className="text-bone-mute">· {band}</span>}
-          </div>
-        </div>
-        {view.deltaFromFirst !== null && (
-          <div className="text-right">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-bone-mute">since first</div>
-            <div className={`font-display text-2xl tabular-nums ${view.deltaFromFirst >= 0 ? 'text-signal-ok' : 'text-signal-warn'}`}>
-              {view.deltaFromFirst >= 0 ? '+' : ''}{view.deltaFromFirst.toFixed(1)}
-            </div>
-          </div>
-        )}
+    <div className="nn-card p-6 space-y-4">
+      <div className="flex items-center gap-2 font-mono text-[11px] text-bone-dim">
+        <span className={`inline-block w-2 h-2 rounded-sm ${SOURCE_DOT[view.currentSource ?? 'device']}`} />
+        {SOURCE_LABEL[view.currentSource ?? 'device']} · {view.currentDateIso}
+        {band && <span className="text-bone-mute">· {band}</span>}
       </div>
 
-      {view.series.length >= 2 && <TrendChart view={view} />}
+      <StatTile
+        label="vo2 max - current"
+        value={view.current.toFixed(1)}
+        unit="ml/kg/min"
+        target={target}
+        word={word}
+        tone={tone}
+        sparkline={view.series.length >= 2 ? <TrendChart view={view} /> : undefined}
+      />
 
       <p className="font-mono text-[10px] text-bone-mute leading-relaxed">
         ↳ observed only - VO2 max is tracked for insight but does not change your

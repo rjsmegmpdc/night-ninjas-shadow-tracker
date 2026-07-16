@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { Card, CardLabel } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
-import { ScanEye, TrendingUp, TrendingDown, Minus, AlertTriangle, Info } from 'lucide-react';
+import { StatTile, type StatTileTone } from '@/components/ui/stat-tile';
+import { AlertTriangle, Info } from 'lucide-react';
 import { logPageView } from '@/lib/store/instrument';
 import { evaluateRecentWeeks, buildReconAggregate, type WeekEvaluation } from '@/lib/analysis/recent-weeks';
 import { deriveObservations, type Observation } from '@/lib/analysis/observations';
@@ -158,109 +159,49 @@ function AggregateRow({ aggregate }: { aggregate: NonNullable<Awaited<ReturnType
         <span className="nn-caps text-accent">last 12 vs previous 12</span>
       </div>
       <div className="grid md:grid-cols-3 gap-px bg-ink-line border border-ink-line">
-        <BigStat
+        <StatTile
           label="total km"
           value={aggregate.totalKm.current.toFixed(0)}
           unit="km"
-          deltaPct={aggregate.totalKm.deltaPct}
-          deltaUnit="vs prev 12wk"
-          sparkline={aggregate.weeklyKmTrend}
+          target={deltaTarget(aggregate.totalKm.deltaPct, '%', 'vs prev 12wk')}
+          points={aggregate.weeklyKmTrend}
+          {...trendInterpretation(aggregate.totalKm.deltaPct)}
         />
-        <BigStat
+        <StatTile
           label="compliance"
-          value={aggregate.compliance.currentPct.toString()}
+          value={aggregate.compliance.currentPct}
           unit="%"
-          deltaPp={aggregate.compliance.deltaPp}
-          deltaUnit="pp vs prev"
+          target={deltaTarget(aggregate.compliance.deltaPp, 'pp', 'vs prev')}
+          {...trendInterpretation(aggregate.compliance.deltaPp)}
         />
-        <BigStat
+        <StatTile
           label="long run consistency"
-          value={aggregate.longRunConsistency.currentPct.toString()}
+          value={aggregate.longRunConsistency.currentPct}
           unit="%"
-          deltaPp={aggregate.longRunConsistency.deltaPp}
-          deltaUnit="pp vs prev"
+          target={deltaTarget(aggregate.longRunConsistency.deltaPp, 'pp', 'vs prev')}
+          {...trendInterpretation(aggregate.longRunConsistency.deltaPp)}
         />
       </div>
     </section>
   );
 }
 
-function BigStat({
-  label,
-  value,
-  unit,
-  deltaPct,
-  deltaPp,
-  deltaUnit,
-  sparkline,
-}: {
-  label: string;
-  value: string;
-  unit: string;
-  deltaPct?: number | null;
-  deltaPp?: number | null;
-  deltaUnit: string;
-  sparkline?: number[];
-}) {
-  const delta = deltaPct ?? deltaPp ?? null;
-  const deltaSuffix = deltaPct != null ? '%' : 'pp';
-
-  return (
-    <div className="bg-ink p-6 space-y-3">
-      <div className="nn-caps text-[10px]">{label}</div>
-      <div className="flex items-baseline gap-2">
-        <span className="font-mono text-4xl text-bone tabular-nums">{value}</span>
-        <span className="font-mono text-sm text-bone-mute">{unit}</span>
-      </div>
-      {delta != null && (
-        <div className="flex items-center gap-2 font-mono text-xs">
-          {delta > 0 ? (
-            <TrendingUp size={12} strokeWidth={1.5} className="text-signal-ok" />
-          ) : delta < 0 ? (
-            <TrendingDown size={12} strokeWidth={1.5} className="text-accent" />
-          ) : (
-            <Minus size={12} strokeWidth={1.5} className="text-bone-mute" />
-          )}
-          <span
-            className={
-              delta > 0 ? 'text-signal-ok' : delta < 0 ? 'text-accent' : 'text-bone-mute'
-            }
-          >
-            {delta > 0 ? '+' : ''}{delta}{deltaSuffix}
-          </span>
-          <span className="text-bone-mute">{deltaUnit}</span>
-        </div>
-      )}
-      {sparkline && sparkline.length > 0 && <Sparkline values={sparkline} />}
-    </div>
-  );
+/** Plain-fact delta line for StatTile's neutral `target` slot — the colour
+ * judgement lives in the interpretation word instead (see trendInterpretation). */
+function deltaTarget(delta: number | null | undefined, unit: string, label: string): string {
+  if (delta == null) return label;
+  return `${delta > 0 ? '+' : ''}${delta}${unit} ${label}`;
 }
 
-/** Tiny inline sparkline rendered as SVG. */
-function Sparkline({ values }: { values: number[] }) {
-  if (values.length < 2) return null;
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const range = max - min || 1;
-  const width = 120;
-  const height = 24;
-
-  const points = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * width;
-    const y = height - ((v - min) / range) * height;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-
-  return (
-    <svg width={width} height={height} className="text-accent">
-      <polyline
-        points={points.join(' ')}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-    </svg>
-  );
+/** Deterministic, engine-owned interpretation word for a vs-previous-12-weeks
+ * delta (spec §2.2) — mirrors the tone the old BigStat's trend arrow/colour
+ * already used: positive = ok (climbing), negative = accent (declining),
+ * flat/unknown = neutral (steady). */
+function trendInterpretation(delta: number | null | undefined): { word: string; tone: StatTileTone } {
+  if (delta == null) return { word: 'no baseline', tone: 'neutral' };
+  if (delta > 0) return { word: 'climbing', tone: 'ok' };
+  if (delta < 0) return { word: 'declining', tone: 'miss' };
+  return { word: 'steady', tone: 'neutral' };
 }
 
 /* ============================================================================

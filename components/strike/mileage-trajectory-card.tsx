@@ -24,7 +24,7 @@ export function MileageTrajectoryCard({
   );
 
   return (
-    <div className="border border-ink-line p-6 space-y-4">
+    <div className="nn-card p-6 space-y-4">
       <div className="flex items-baseline justify-between">
         <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">
           mileage trajectory - last {history.length} weeks
