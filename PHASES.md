@@ -4,7 +4,7 @@
 
 **Version**: 0.2.0  
 **Branch**: feat/daily-loop (active build)  
-**Status**: Daily-loop stages in build. Active work: Phase 9–11 (ambient sync, manual results fallback, prompt queue, connections panel, daily brief reordering).
+**Status**: Daily loop complete (Phases 9–11: ambient sync, manual results fallback, prompt queue, daily brief, connections panel). Next: UI redesign pass (all screens).
 
 ---
 
@@ -211,7 +211,7 @@ The VELOCITY app comprises the following pages, organized by navigation bucket:
 - No nutrition card (research parked at P2)
 - UI twin of §5's adapter layer in PRD
 
-**Status**: Planned.
+**Status**: Complete.
 
 ---
 
