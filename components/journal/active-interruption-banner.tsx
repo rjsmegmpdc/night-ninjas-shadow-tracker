@@ -9,6 +9,11 @@ import { durationDays, type Interruption } from '@/lib/analysis/interruptions-pu
  * Phase 4 - the active-interruptions panel on the Journal page. Each active
  * interruption can be Resolved (sets end date to today) or Deleted (logged in
  * error). Renders nothing when nothing is active.
+ *
+ * DESIGN-SPEC §3.4 / §1.4: this is Journal's one hero card when an
+ * interruption is active - the single thing that changes what the rest of
+ * the page means - so it takes the elevated shell (ink-panel + tone top
+ * border) instead of the old full-border/tinted-background treatment.
  */
 export function ActiveInterruptionBanner({ active }: { active: Interruption[] }) {
   const [isPending, startTransition] = useTransition();
@@ -25,7 +30,7 @@ export function ActiveInterruptionBanner({ active }: { active: Interruption[] })
   };
 
   return (
-    <div className="rounded-xl border border-signal-warn/50 bg-signal-warn/5 p-6 space-y-4">
+    <div className="nn-card-elevated border-t-2 border-t-signal-warn p-6 space-y-4">
       <div className="flex items-center gap-2">
         <AlertTriangle size={18} strokeWidth={1.5} className="text-signal-warn" />
         <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">

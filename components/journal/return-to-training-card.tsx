@@ -5,6 +5,11 @@ import type { Interruption, ReturnPhase } from '@/lib/analysis/interruptions-pur
  * Phase 4 - graded return-to-training guidance for a recently-resolved injury
  * or illness. Guidance only - the athlete chooses to follow it. Renders
  * nothing when no return ramp is in progress.
+ *
+ * DESIGN-SPEC §3.4: stays a base card - ActiveInterruptionBanner is this
+ * screen's only hero. The accent-tinted full border/background this card
+ * used to carry is replaced with the plain base shell; the accent read
+ * still comes through in the icon and phase label.
  */
 export function ReturnToTrainingCard({
   returns,
@@ -16,7 +21,7 @@ export function ReturnToTrainingCard({
   return (
     <div className="space-y-4">
       {returns.map(({ interruption, phase }) => (
-        <div key={interruption.id} className="border border-accent/40 rounded-xl p-6 space-y-3">
+        <div key={interruption.id} className="nn-card p-6 space-y-3">
           <div className="flex items-center gap-2">
             <TrendingUp size={16} strokeWidth={1.5} className="text-accent" />
             <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">

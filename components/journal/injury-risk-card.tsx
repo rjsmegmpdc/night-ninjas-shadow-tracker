@@ -4,13 +4,13 @@ import type { InjuryRisk, RiskLevel } from '@/lib/analysis/interruptions-pure';
 /**
  * Phase 4 - injury-risk read. Combines ACWR with logged injury history. Flags
  * risk; it does not diagnose. Tone follows the level.
+ *
+ * DESIGN-SPEC §3.4: stays a base card - ActiveInterruptionBanner is Journal's
+ * only hero. The level read still comes through clearly via the icon and
+ * badge colour; the full tone-tinted border/background this card used to
+ * carry is dropped in favour of the plain base shell.
  */
 
-const TONE: Record<RiskLevel, string> = {
-  low: 'border-signal-ok/40 bg-signal-ok/5',
-  elevated: 'border-signal-warn/40 bg-signal-warn/5',
-  high: 'border-signal-miss/40 bg-signal-miss/5',
-};
 const ICON_TONE: Record<RiskLevel, string> = {
   low: 'text-signal-ok',
   elevated: 'text-signal-warn',
@@ -22,7 +22,7 @@ const LABEL: Record<RiskLevel, string> = { low: 'Low', elevated: 'Elevated', hig
 export function InjuryRiskCard({ risk }: { risk: InjuryRisk }) {
   const Icon = ICON[risk.level];
   return (
-    <div className={`rounded-xl border p-6 space-y-4 ${TONE[risk.level]}`}>
+    <div className="nn-card p-6 space-y-4">
       <div className="flex items-center gap-2">
         <Icon size={18} strokeWidth={1.5} className={ICON_TONE[risk.level]} />
         <div className="font-display tracking-wide-display uppercase text-xs text-bone-mute">
