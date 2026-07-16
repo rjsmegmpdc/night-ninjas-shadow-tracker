@@ -18,14 +18,14 @@ import { getCoachRead } from '@/lib/analysis/coach-read';
  * case), but the page passes false when a safety-rail CoachAdjustmentCard
  * exists that load - only one card earns hero status (spec §1.4/§3.1.6).
  *
- * Tone/why-chips limitation: `CoachRead` (lib/analysis/coach-read-pure.ts)
- * currently exposes only {headline, detail, pointer} - no severity flag or
- * structured evidence array to build genuine why-chips from (the mockup's
- * "HRV ↓11%" style chips need new fields on that type). Out of this
- * component's file scope (lib/ is Quill's this wave) - flagged in the
- * report as a follow-up rather than fabricated here. Tone is fixed to
- * 'accent' (the coach's default voice) until that data exists; the
- * `pointer` line keeps its original "next" treatment via the children slot.
+ * `tone` and `evidence` now come straight from `CoachRead`
+ * (lib/analysis/coach-read-pure.ts) - both engine-derived, no invented
+ * numbers. `tone` maps directly onto VerdictCard's tone prop (CoachReadTone
+ * is a subset of VerdictTone). `evidence` feeds the Why: chip row, rendered
+ * only when there's at least one chip - a miss/no-compliance-context read
+ * can have zero evidence, and VerdictCard already renders nothing for an
+ * empty/undefined whyChips array, so this stays silent-when-empty rather
+ * than showing an empty "why" label.
  */
 export async function CoachReadCard({ elevated = true }: { elevated?: boolean } = {}) {
   const read = await getCoachRead();
@@ -33,11 +33,12 @@ export async function CoachReadCard({ elevated = true }: { elevated?: boolean } 
 
   return (
     <VerdictCard
-      tone="accent"
+      tone={read.tone}
       icon={<Bot size={20} strokeWidth={1.5} />}
       eyebrow="coach read"
       headline={read.headline}
       detail={read.detail}
+      whyChips={read.evidence.length > 0 ? read.evidence : undefined}
       elevated={elevated}
     >
       <div className="pt-1 space-y-1">

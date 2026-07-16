@@ -107,3 +107,125 @@ describe('buildCoachRead', () => {
     expect(read.headline).toContain('WeightTraining logged on 2026-06-15');
   });
 });
+
+describe('buildCoachRead — tone (G-005)', () => {
+  it('maps ok -> ok', () => {
+    expect(buildCoachRead(baseInput({ compliance: { flag: 'ok', message: '', sessionLabel: null } })).tone).toBe('ok');
+  });
+
+  it.each(['warn', 'fast', 'slow', 'short'] as const)('maps %s -> warn', (flag) => {
+    expect(buildCoachRead(baseInput({ compliance: { flag, message: '', sessionLabel: null } })).tone).toBe('warn');
+  });
+
+  it('maps miss -> accent', () => {
+    expect(buildCoachRead(baseInput({ compliance: { flag: 'miss', message: '', sessionLabel: null } })).tone).toBe('accent');
+  });
+
+  it('maps none -> accent', () => {
+    expect(buildCoachRead(baseInput({ compliance: { flag: 'none', message: '', sessionLabel: null } })).tone).toBe('accent');
+  });
+
+  it('maps no compliance context -> accent (neutral brand tone)', () => {
+    expect(buildCoachRead(baseInput({ compliance: null })).tone).toBe('accent');
+  });
+});
+
+describe('buildCoachRead — evidence chips (G-005)', () => {
+  it('emits a distance-vs-target chip only when actual + both target bounds are present', () => {
+    const withBand = buildCoachRead(
+      baseInput({
+        athleteState: null,
+        compliance: {
+          flag: 'ok',
+          message: '',
+          sessionLabel: null,
+          actualKm: 10.2,
+          targetDistanceKmMin: 9,
+          targetDistanceKmMax: 11,
+        },
+      })
+    );
+    expect(withBand.evidence).toContain('10.2 km vs 9–11 target');
+
+    const missingBound = buildCoachRead(
+      baseInput({
+        athleteState: null,
+        compliance: { flag: 'ok', message: '', sessionLabel: null, actualKm: 10.2, targetDistanceKmMin: 9 },
+      })
+    );
+    expect(missingBound.evidence.some((e) => e.includes('km vs'))).toBe(false);
+  });
+
+  it('emits a pace-vs-band chip only when actual + both pace bounds are present, formatted mm:ss/km', () => {
+    const withBand = buildCoachRead(
+      baseInput({
+        athleteState: null,
+        compliance: {
+          flag: 'ok',
+          message: '',
+          sessionLabel: null,
+          actualPaceSpk: 304, // 5:04/km
+          targetPaceSpkMin: 295, // 4:55/km
+          targetPaceSpkMax: 310, // 5:10/km
+        },
+      })
+    );
+    expect(withBand.evidence).toContain('pace 5:04/km vs 4:55–5:10 band');
+
+    const missingBound = buildCoachRead(
+      baseInput({
+        athleteState: null,
+        compliance: { flag: 'ok', message: '', sessionLabel: null, actualPaceSpk: 304, targetPaceSpkMin: 295 },
+      })
+    );
+    expect(missingBound.evidence.some((e) => e.startsWith('pace '))).toBe(false);
+  });
+
+  it('emits a TSB+form chip only when athleteState is present', () => {
+    const withState = buildCoachRead(baseInput({ athleteState: { ctl: 50, atl: 40, tsb: 3, formClass: 'fresh' } }));
+    expect(withState.evidence).toContain('TSB +3 · fresh');
+
+    const withoutState = buildCoachRead(baseInput({ athleteState: null }));
+    expect(withoutState.evidence.some((e) => e.startsWith('TSB'))).toBe(false);
+  });
+
+  it('emits a self-reported chip only when the activity is self-reported', () => {
+    const selfReported = buildCoachRead(baseInput({ activity: { ...baseInput().activity, isSelfReported: true } }));
+    expect(selfReported.evidence).toContain('self-reported');
+
+    const deviceRecorded = buildCoachRead(baseInput({ activity: { ...baseInput().activity, isSelfReported: false } }));
+    expect(deviceRecorded.evidence).not.toContain('self-reported');
+  });
+
+  it('never invents a chip from absent inputs — empty compliance/athleteState/self-reported yields no evidence', () => {
+    const read = buildCoachRead(
+      baseInput({
+        compliance: { flag: 'none', message: '', sessionLabel: null },
+        athleteState: null,
+        activity: { ...baseInput().activity, isSelfReported: false },
+      })
+    );
+    expect(read.evidence).toEqual([]);
+  });
+
+  it('caps at 4 chips when every source is present at once', () => {
+    const read = buildCoachRead(
+      baseInput({
+        activity: { ...baseInput().activity, isSelfReported: true },
+        compliance: {
+          flag: 'ok',
+          message: '',
+          sessionLabel: null,
+          actualKm: 10.2,
+          targetDistanceKmMin: 9,
+          targetDistanceKmMax: 11,
+          actualPaceSpk: 304,
+          targetPaceSpkMin: 295,
+          targetPaceSpkMax: 310,
+        },
+        athleteState: { ctl: 50, atl: 40, tsb: 3, formClass: 'fresh' },
+      })
+    );
+    expect(read.evidence).toHaveLength(4);
+  });
+});

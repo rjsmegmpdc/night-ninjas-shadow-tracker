@@ -15,6 +15,12 @@ import type { FormClass } from './athlete-state-pure';
  * work, no hollow praise, never demeaning. `describeCompliance` below is the
  * single place that turns a ComplianceFlag into wording — keep any tone
  * adjustments there so the rest of the fn stays about assembling facts.
+ *
+ * G-005 (UI redesign): `tone` and `evidence` back the verdict-first hero
+ * card's colour cue and "Why:" chip row. Both are derived ONLY from fields
+ * already on CoachReadInput - no new inputs, no invented numbers. A chip is
+ * only emitted when every value it needs is present; partial/missing data
+ * just means fewer chips, never a guessed one.
  */
 
 export interface CoachReadActivityInput {
@@ -33,6 +39,16 @@ export interface CoachReadComplianceInput {
   message: string;
   /** Label of the prescribed session this activity was assessed against, if any. */
   sessionLabel: string | null;
+  /** Actual distance covered against this session, km — from the matched activity. */
+  actualKm?: number;
+  /** Actual pace, seconds per km — from the matched activity. */
+  actualPaceSpk?: number;
+  /** Prescribed distance band, km. */
+  targetDistanceKmMin?: number;
+  targetDistanceKmMax?: number;
+  /** Prescribed pace band, seconds per km. Min = faster/smaller end (matches SessionTarget.paceZone). */
+  targetPaceSpkMin?: number;
+  targetPaceSpkMax?: number;
 }
 
 export interface CoachReadAthleteStateInput {
@@ -48,6 +64,9 @@ export interface CoachReadInput {
   athleteState: CoachReadAthleteStateInput | null;
 }
 
+/** Colour cue for the verdict-first hero card. 'accent' is the neutral brand tone - used when there's nothing to praise or warn about (miss, no matching session, or no compliance context at all). */
+export type CoachReadTone = 'ok' | 'warn' | 'accent';
+
 export interface CoachRead {
   /** One-line summary — leads with the fact, not an adjective. */
   headline: string;
@@ -55,6 +74,10 @@ export interface CoachRead {
   detail: string;
   /** A forward-looking pointer to tomorrow/next session — never invents a prescription. */
   pointer: string;
+  /** Colour cue derived from the compliance flag. */
+  tone: CoachReadTone;
+  /** Short mono "Why:" chip strings, each built from present inputs only. At most MAX_EVIDENCE_CHIPS. */
+  evidence: string[];
 }
 
 const FORM_CLASS_LABEL: Record<FormClass, string> = {
@@ -67,6 +90,79 @@ const FORM_CLASS_LABEL: Record<FormClass, string> = {
 
 function km(n: number | null): string {
   return n == null ? '' : `${n.toFixed(1)}km`;
+}
+
+const MAX_EVIDENCE_CHIPS = 4;
+
+function deriveTone(compliance: CoachReadComplianceInput | null): CoachReadTone {
+  if (!compliance) return 'accent';
+  switch (compliance.flag) {
+    case 'ok':
+      return 'ok';
+    case 'warn':
+    case 'fast':
+    case 'slow':
+    case 'short':
+      return 'warn';
+    case 'miss':
+    case 'none':
+    default:
+      return 'accent';
+  }
+}
+
+/** mm:ss, rounded to the nearest second - no unit suffix (used for band bounds, where the /km reads once for the whole chip). */
+function paceMinSec(spk: number): string {
+  const totalSec = Math.round(spk);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${sec.toString().padStart(2, '0')}`;
+}
+
+/** mm:ss/km, rounded to the nearest second. */
+function paceLabel(spk: number): string {
+  return `${paceMinSec(spk)}/km`;
+}
+
+/** Whole numbers print bare ("9"), fractional ones get one decimal ("9.5") - matches how these targets are usually authored. */
+function formatKmBound(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
+function buildEvidence(input: CoachReadInput): string[] {
+  const { activity, compliance, athleteState } = input;
+  const chips: string[] = [];
+
+  if (
+    compliance?.actualKm != null &&
+    compliance.targetDistanceKmMin != null &&
+    compliance.targetDistanceKmMax != null
+  ) {
+    chips.push(
+      `${compliance.actualKm.toFixed(1)} km vs ${formatKmBound(compliance.targetDistanceKmMin)}–${formatKmBound(compliance.targetDistanceKmMax)} target`
+    );
+  }
+
+  if (
+    compliance?.actualPaceSpk != null &&
+    compliance.targetPaceSpkMin != null &&
+    compliance.targetPaceSpkMax != null
+  ) {
+    chips.push(
+      `pace ${paceLabel(compliance.actualPaceSpk)} vs ${paceMinSec(compliance.targetPaceSpkMin)}–${paceMinSec(compliance.targetPaceSpkMax)} band`
+    );
+  }
+
+  if (athleteState) {
+    const sign = athleteState.tsb >= 0 ? '+' : '';
+    chips.push(`TSB ${sign}${athleteState.tsb} · ${FORM_CLASS_LABEL[athleteState.formClass]}`);
+  }
+
+  if (activity.isSelfReported) {
+    chips.push('self-reported');
+  }
+
+  return chips.slice(0, MAX_EVIDENCE_CHIPS);
 }
 
 function describeCompliance(c: CoachReadComplianceInput): string {
@@ -135,5 +231,7 @@ export function buildCoachRead(input: CoachReadInput): CoachRead {
     headline,
     detail: detailParts.join(' '),
     pointer,
+    tone: deriveTone(compliance),
+    evidence: buildEvidence(input),
   };
 }

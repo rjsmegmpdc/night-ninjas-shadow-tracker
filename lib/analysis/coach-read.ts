@@ -20,6 +20,12 @@
  * synced replacement can land within minutes of each other; without this
  * exclusion, ORDER BY startDateLocal DESC could pick the stale superseded
  * row over the accurate synced one.
+ *
+ * G-005 (UI redesign): resolveComplianceForActivity now also forwards
+ * actualKm/actualPaceSpk and the prescribed distance/pace bands to
+ * coach-read-pure's CoachReadComplianceInput, for its evidence-chip builder.
+ * No new query - these all already exist on the `session` object evaluateWeek
+ * produces; this is a pure pass-through.
  */
 
 import 'server-only';
@@ -96,6 +102,16 @@ async function resolveComplianceForActivity(activity: Activity): Promise<CoachRe
     flag: session.flag,
     message: session.message,
     sessionLabel: session.target.label,
+    // G-005: pass-through only - these already exist on `session`, evaluateWeek
+    // computed them, no new query. Undefined stays undefined (no `?? undefined`
+    // needed) so coach-read-pure's evidence builder only emits a chip when
+    // every value it needs is genuinely present.
+    actualKm: session.actualKm,
+    actualPaceSpk: session.actualPaceSpk,
+    targetDistanceKmMin: session.target.distanceKmMin,
+    targetDistanceKmMax: session.target.distanceKmMax,
+    targetPaceSpkMin: session.target.paceZone?.minSpk,
+    targetPaceSpkMax: session.target.paceZone?.maxSpk,
   };
 }
 
