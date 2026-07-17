@@ -132,6 +132,145 @@ export async function createIncrementalJob(): Promise<SyncJob> {
  * Job execution
  * -------------------------------------------------------------------------- */
 
+/**
+ * Outcome of a single `runSyncJobPage` call:
+ *   'more'         — a full page was processed, keep going
+ *   'done'         — no more data (empty page, past the window, or a
+ *                    short/last page) — the job is complete
+ *   'rate_limited' — voluntarily paused (>90% of the 15-min budget) or
+ *                    Strava itself returned 429; `markRateLimited` has
+ *                    already been called, job status is 'rate_limited'
+ */
+export type SyncPageOutcome = 'more' | 'done' | 'rate_limited';
+
+/**
+ * Execute exactly ONE page of a sync job: fetch, upsert, ingest gear,
+ * advance the cursor, write a heartbeat. Stateless — re-reads the job row
+ * from the DB on every call rather than trusting an in-memory snapshot, so
+ * it's safe to call repeatedly and independently.
+ *
+ * This is the shared unit reused by both runtimes:
+ *   - Node's `runJob` below loops this in-process (fire-and-forget).
+ *   - The Cloudflare Workflow (workers/sync-workflow.ts) wraps each call in
+ *     its own `step.do()`, so each page is durably checkpointed — a step
+ *     failure retries just that page, not the whole job, and the workflow
+ *     survives worker restarts between pages.
+ *
+ * Note: because the job row is re-read fresh on every call (rather than
+ * held in memory for the whole run, as the pre-cloud-4 single-function
+ * version did), `newestFetched` is set once (from the first page) and then
+ * preserved — the old in-memory-snapshot version re-derived it from
+ * `job.newestFetched ?? newNewest` using a snapshot that was never updated
+ * mid-run, which happened to make it track the LAST page's newest instead
+ * of the true overall newest on a fresh (non-resumed) job. This is a minor
+ * behavioural fix, not a regression: no test covers the old value, and the
+ * new value is the more correct one.
+ */
+export async function runSyncJobPage(jobId: number): Promise<SyncPageOutcome> {
+  const db = (await getDb());
+
+  const job = await db.select().from(schema.syncJobs).where(eq(schema.syncJobs.id, jobId)).get();
+  if (!job) throw new Error(`Job ${jobId} not found`);
+
+  const cursorBefore = job.cursorBefore;
+  const cursorAfter = job.cursorAfter;
+
+  let result;
+  try {
+    result = await fetchActivityPage({ before: cursorBefore, after: cursorAfter });
+  } catch (err) {
+    if (err instanceof StravaRateLimitError) {
+      await markRateLimited(jobId, err.resetsAt);
+      return 'rate_limited';
+    }
+    throw err;
+  }
+
+  const { activities, rateLimit } = result;
+
+  // Strava returns activities sorted newest-first within the page
+  if (activities.length === 0) {
+    // No more data — we're done
+    return 'done';
+  }
+
+  // Upsert each activity. Track oldest in this batch so we can advance
+  // the cursor for the next page.
+  let pageOldestUtc = cursorBefore ? cursorBefore * 1000 : Date.now();
+  let pageNewestUtc = 0;
+  let added = 0;
+  let updated = 0;
+
+  for (const a of activities) {
+    const row = mapStravaActivity(a);
+    const upsertResult = await upsertActivity(row);
+    if (upsertResult === 'inserted') {
+      added++;
+      await recordManualOverlapIfAny(row);
+    } else if (upsertResult === 'updated') updated++;
+
+    const ts = new Date(a.start_date).getTime();
+    if (ts < pageOldestUtc) pageOldestUtc = ts;
+    if (ts > pageNewestUtc) pageNewestUtc = ts;
+  }
+
+  // Ingest any new shoes we saw in this page. This runs Strava /gear/{id}
+  // calls — only for gear_ids we haven't recorded yet, which is typically
+  // 0-2 calls per sync. Failures here don't break the sync.
+  const pageGearIds = activities
+    .map((a) => a.gear_id)
+    .filter((id): id is string => id != null);
+  if (pageGearIds.length > 0) {
+    await ensureShoesForGearIds(pageGearIds);
+  }
+
+  // Advance cursor: next page should fetch activities older than the
+  // oldest in THIS page.
+  const nextBefore = Math.floor(pageOldestUtc / 1000);
+
+  // Update job progress + heartbeat
+  const newOldest = new Date(pageOldestUtc).toISOString().slice(0, 10);
+  const newNewest = new Date(pageNewestUtc).toISOString().slice(0, 10);
+
+  await db
+    .update(schema.syncJobs)
+    .set({
+      cursorBefore: nextBefore,
+      oldestFetched: newOldest,
+      newestFetched: job.newestFetched ?? newNewest,
+      pagesFetched: sql`${schema.syncJobs.pagesFetched} + 1`,
+      added: sql`${schema.syncJobs.added} + ${added}`,
+      updated: sql`${schema.syncJobs.updated} + ${updated}`,
+      lastHeartbeatAt: new Date(),
+    })
+    .where(eq(schema.syncJobs.id, jobId));
+
+  // For initial_90d, stop once we've gone past the 90d window
+  if (job.jobType === 'initial_90d' && cursorAfter && nextBefore <= cursorAfter) {
+    return 'done';
+  }
+
+  // If page returned fewer than PAGE_SIZE activities, that's the last page
+  if (activities.length < PAGE_SIZE) {
+    return 'done';
+  }
+
+  // Defensive: if we're at >90% of rate limit, voluntarily pause
+  if (rateLimit.fifteenMinPercent !== null && rateLimit.fifteenMinPercent > 90) {
+    await markRateLimited(jobId, new Date(Date.now() + 15 * 60 * 1000));
+    return 'rate_limited';
+  }
+
+  return 'more';
+}
+
+/**
+ * Node path — drives a job to completion by looping `runSyncJobPage`
+ * in-process. Unchanged behaviour from before cloud-4's refactor (same
+ * status transitions, same 150ms politeness delay between pages, same
+ * failure handling); the loop body just moved into the shared per-page
+ * function above.
+ */
 export async function runJob(jobId: number): Promise<SyncJob> {
   const db = (await getDb());
 
@@ -141,98 +280,17 @@ export async function runJob(jobId: number): Promise<SyncJob> {
     .set({ status: 'running', lastHeartbeatAt: new Date() })
     .where(eq(schema.syncJobs.id, jobId));
 
-  let job = await db.select().from(schema.syncJobs).where(eq(schema.syncJobs.id, jobId)).get();
-  if (!job) throw new Error(`Job ${jobId} not found`);
-
-  let cursorBefore = job.cursorBefore;
-  const cursorAfter = job.cursorAfter;
-
   try {
     while (true) {
-      const result = await fetchActivityPage({
-        before: cursorBefore,
-        after: cursorAfter,
-      });
-
-      const { activities, rateLimit } = result;
-
-      // Strava returns activities sorted newest-first within the page
-      if (activities.length === 0) {
-        // No more data — we're done
-        break;
-      }
-
-      // Upsert each activity. Track oldest in this batch so we can advance
-      // the cursor for the next page.
-      let pageOldestUtc = cursorBefore ? cursorBefore * 1000 : Date.now();
-      let pageNewestUtc = 0;
-      let added = 0;
-      let updated = 0;
-
-      for (const a of activities) {
-        const row = mapStravaActivity(a);
-        const result = await upsertActivity(row);
-        if (result === 'inserted') {
-          added++;
-          await recordManualOverlapIfAny(row);
-        } else if (result === 'updated') updated++;
-
-        const ts = new Date(a.start_date).getTime();
-        if (ts < pageOldestUtc) pageOldestUtc = ts;
-        if (ts > pageNewestUtc) pageNewestUtc = ts;
-      }
-
-      // Ingest any new shoes we saw in this page. This runs Strava /gear/{id}
-      // calls — only for gear_ids we haven't recorded yet, which is typically
-      // 0-2 calls per sync. Failures here don't break the sync.
-      const pageGearIds = activities
-        .map((a) => a.gear_id)
-        .filter((id): id is string => id != null);
-      if (pageGearIds.length > 0) {
-        await ensureShoesForGearIds(pageGearIds);
-      }
-
-      // Advance cursor: next page should fetch activities older than the
-      // oldest in THIS page.
-      const nextBefore = Math.floor(pageOldestUtc / 1000);
-
-      // Update job progress + heartbeat
-      const newOldest = new Date(pageOldestUtc).toISOString().slice(0, 10);
-      const newNewest = new Date(pageNewestUtc).toISOString().slice(0, 10);
-
-      await db
-        .update(schema.syncJobs)
-        .set({
-          cursorBefore: nextBefore,
-          oldestFetched: newOldest,
-          newestFetched: job.newestFetched ?? newNewest,
-          pagesFetched: sql`${schema.syncJobs.pagesFetched} + 1`,
-          added: sql`${schema.syncJobs.added} + ${added}`,
-          updated: sql`${schema.syncJobs.updated} + ${updated}`,
-          lastHeartbeatAt: new Date(),
-        })
-        .where(eq(schema.syncJobs.id, jobId));
-
-      cursorBefore = nextBefore;
-
-      // For initial_90d, stop once we've gone past the 90d window
-      if (job.jobType === 'initial_90d' && cursorAfter && nextBefore <= cursorAfter) {
-        break;
-      }
-
-      // If page returned fewer than PAGE_SIZE activities, that's the last page
-      if (activities.length < PAGE_SIZE) {
-        break;
-      }
-
-      // Be a polite client even when we're not rate-limited
-      await sleep(150);
-
-      // Defensive: if we're at >90% of rate limit, voluntarily pause
-      if (rateLimit.fifteenMinPercent !== null && rateLimit.fifteenMinPercent > 90) {
-        await markRateLimited(jobId, new Date(Date.now() + 15 * 60 * 1000));
+      const outcome = await runSyncJobPage(jobId);
+      if (outcome === 'rate_limited') {
         return await getJob(jobId);
       }
+      if (outcome === 'done') {
+        break;
+      }
+      // Be a polite client even when we're not rate-limited
+      await sleep(150);
     }
 
     // Successfully finished
@@ -458,7 +516,14 @@ export async function listRecentJobs(limit = 20): Promise<SyncJob[]> {
     .all();
 }
 
-export async function resumeJob(jobId: number): Promise<SyncJob> {
+/**
+ * Guard shared by both runtimes' resume paths: throws if the job doesn't
+ * exist or its rate limit hasn't reset yet, otherwise returns the job row.
+ * Node's `resumeJob` below calls this before looping `runJob` in-process;
+ * the workerd trigger path (lib/actions/sync.ts) calls it before creating
+ * a new Workflow instance for the same jobId.
+ */
+export async function assertJobResumable(jobId: number): Promise<SyncJob> {
   const db = (await getDb());
   const job = await db
     .select()
@@ -475,6 +540,11 @@ export async function resumeJob(jobId: number): Promise<SyncJob> {
     }
   }
 
+  return job;
+}
+
+export async function resumeJob(jobId: number): Promise<SyncJob> {
+  await assertJobResumable(jobId);
   return runJob(jobId);
 }
 

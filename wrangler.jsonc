@@ -5,7 +5,14 @@
 	// `wrangler kv namespace create` are run at deploy stage (cloud-5b).
 	// See docs: https://opennext.js.org/cloudflare
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"main": ".open-next/worker.js",
+	// cloud-4: was ".open-next/worker.js" (the OpenNext-generated handler
+	// directly). Now points at a thin custom wrapper (worker-entry.ts) that
+	// re-exports that same generated fetch handler unchanged AND adds the
+	// StravaSyncWorkflow class as a named export — OpenNext's generated file
+	// has no room for hand-written exports. See worker-entry.ts and
+	// workers/sync-workflow.ts. FLAGGED FOR cloud-5b: this "main" redirect
+	// must survive whatever deploy-time regeneration/verification Dock does.
+	"main": "worker-entry.ts",
 	"name": "velocity",
 	// Bump this to the actual current date before the real deploy.
 	// 2024-09-23 is the minimum date needed for full nodejs_compat behaviour.
@@ -56,6 +63,31 @@
 			"bucket_name": "velocity-opennext-cache"
 		}
 	],
+
+	// Workflows — cloud-4, Strava sync runner. class_name must match the
+	// export in worker-entry.ts (which re-exports it from
+	// workers/sync-workflow.ts). No separate `name` is set for the Workflow
+	// itself here since wrangler defaults it to `<worker-name>-<binding>`;
+	// set one explicitly at deploy time if that default collides with
+	// anything. Pricing (both Free and Workers Paid support Workflows, see
+	// cloud-4 report) — no plan-gating concern.
+	"workflows": [
+		{
+			"binding": "SYNC_WORKFLOW",
+			"name": "velocity-strava-sync",
+			"class_name": "StravaSyncWorkflow"
+		}
+	],
+
+	// cloud-4: worker-entry.ts (this config's "main") imports shared lib/**
+	// modules that start with `import 'server-only'`. That bare specifier
+	// isn't a real resolvable package — Next.js vendors + aliases it via
+	// webpack for its own build, which wrangler's esbuild pass knows nothing
+	// about. Redirect it to a local no-op shim (matches what `server-only`
+	// actually does outside a client bundle). See workers/shims/server-only.ts.
+	"alias": {
+		"server-only": "./workers/shims/server-only.ts"
+	},
 
 	// No "images" binding: grep of app/ and components/ found zero uses of
 	// next/image, so there's nothing to route through Cloudflare's image

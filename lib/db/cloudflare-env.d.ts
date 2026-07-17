@@ -1,4 +1,4 @@
-import type { D1Database, R2Bucket } from '@cloudflare/workers-types';
+import type { D1Database, R2Bucket, Workflow } from '@cloudflare/workers-types';
 
 /**
  * Augments @opennextjs/cloudflare's ambient `CloudflareEnv` interface with
@@ -7,6 +7,8 @@ import type { D1Database, R2Bucket } from '@cloudflare/workers-types';
  * secrets/storage bindings.
  *
  * cloud-3 adds PHOTOS (R2 — shoe photo storage, see lib/storage/shoe-photos.ts).
+ * cloud-4 adds SYNC_WORKFLOW (Workflows — Strava sync runner, see
+ * workers/sync-workflow.ts and wrangler.jsonc's "workflows" block).
  */
 declare global {
   interface CloudflareEnv {
@@ -14,6 +16,8 @@ declare global {
     DB: D1Database;
     /** R2 bucket binding for shoe photo storage — see wrangler config. */
     PHOTOS: R2Bucket;
+    /** Workflows binding for the Strava sync runner — see wrangler config. */
+    SYNC_WORKFLOW: Workflow<{ jobId: number; runCompletionHooks: boolean }>;
   }
 }
 
