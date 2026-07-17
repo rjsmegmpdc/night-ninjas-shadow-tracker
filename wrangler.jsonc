@@ -19,6 +19,12 @@
 	"compatibility_date": "2026-07-17",
 	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
 
+	// cloud-5b-b: explicit workers_dev opt-in. Safe now that the Cloudflare
+	// Access application for velocity.onlinemyassistant.workers.dev exists
+	// and gates the hostname before this flag ever takes effect on a real
+	// deploy — see the cloud-5b-b report for the Access-app id.
+	"workers_dev": true,
+
 	"assets": {
 		"directory": ".open-next/assets",
 		"binding": "ASSETS"
