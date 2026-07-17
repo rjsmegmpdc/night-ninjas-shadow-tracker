@@ -14,9 +14,9 @@
 	// must survive whatever deploy-time regeneration/verification Dock does.
 	"main": "worker-entry.ts",
 	"name": "velocity",
-	// Bump this to the actual current date before the real deploy.
-	// 2024-09-23 is the minimum date needed for full nodejs_compat behaviour.
-	"compatibility_date": "2024-09-23",
+	// Bumped in cloud-5b-a from the 2024-09-23 minimum-for-nodejs_compat
+	// floor to a current supported date.
+	"compatibility_date": "2026-07-17",
 	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
 
 	"assets": {
@@ -42,7 +42,11 @@
 		{
 			"binding": "DB",
 			"database_name": "velocity-db",
-			"database_id": "<PLACEHOLDER_D1_DATABASE_ID>"
+			"database_id": "a15034e0-a0e2-4762-9f22-7942ba371294",
+				// cloud-5b-a: SQL migrations live alongside the Drizzle schema
+				// (lib/db/migrations), not wrangler's default ./migrations —
+				// point `wrangler d1 migrations apply` at the real location.
+				"migrations_dir": "lib/db/migrations"
 		}
 	],
 
