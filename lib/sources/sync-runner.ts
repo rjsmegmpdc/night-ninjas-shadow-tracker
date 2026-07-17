@@ -48,7 +48,7 @@ export async function createJob(opts: {
   cursorAfter?: number | null;
   parentJobId?: number | null;
 }): Promise<SyncJob> {
-  const db = getDb();
+  const db = (await getDb());
   const now = new Date();
   const result = await db
     .insert(schema.syncJobs)
@@ -83,7 +83,7 @@ export async function createInitial90dJob(): Promise<SyncJob> {
  * and pulls everything older.
  */
 export async function createExtendedHistoryJob(): Promise<SyncJob> {
-  const db = getDb();
+  const db = (await getDb());
   // Find the oldest activity we already have — start before that
   const oldest = await db
     .select({ startDateUtc: schema.activities.startDateUtc })
@@ -108,7 +108,7 @@ export async function createExtendedHistoryJob(): Promise<SyncJob> {
  * Incremental sync. Pulls only activities newer than our newest known one.
  */
 export async function createIncrementalJob(): Promise<SyncJob> {
-  const db = getDb();
+  const db = (await getDb());
   const newest = await db
     .select({ startDateUtc: schema.activities.startDateUtc })
     .from(schema.activities)
@@ -133,7 +133,7 @@ export async function createIncrementalJob(): Promise<SyncJob> {
  * -------------------------------------------------------------------------- */
 
 export async function runJob(jobId: number): Promise<SyncJob> {
-  const db = getDb();
+  const db = (await getDb());
 
   // Mark as running
   await db
@@ -265,7 +265,7 @@ export async function runJob(jobId: number): Promise<SyncJob> {
 }
 
 async function markRateLimited(jobId: number, resetsAt: Date) {
-  const db = getDb();
+  const db = (await getDb());
   await db
     .update(schema.syncJobs)
     .set({
@@ -277,7 +277,7 @@ async function markRateLimited(jobId: number, resetsAt: Date) {
 }
 
 async function getJob(jobId: number): Promise<SyncJob> {
-  const db = getDb();
+  const db = (await getDb());
   const job = await db
     .select()
     .from(schema.syncJobs)
@@ -292,7 +292,7 @@ async function getJob(jobId: number): Promise<SyncJob> {
  * -------------------------------------------------------------------------- */
 
 async function upsertActivity(row: ReturnType<typeof mapStravaActivity>): Promise<'inserted' | 'updated' | 'unchanged'> {
-  const db = getDb();
+  const db = (await getDb());
   const existing = await db
     .select({ id: schema.activities.id })
     .from(schema.activities)
@@ -340,7 +340,7 @@ const RUN_TYPES = new Set(['Run', 'VirtualRun', 'TrailRun']);
 async function recordManualOverlapIfAny(row: NewActivity): Promise<void> {
   if (!RUN_TYPES.has(row.type)) return;
   try {
-    const db = getDb();
+    const db = (await getDb());
     const localDateIso = row.startDateLocal.slice(0, 10);
 
     const manualCandidates = await db
@@ -405,7 +405,7 @@ async function recordManualOverlapIfAny(row: NewActivity): Promise<void> {
  * with a status index) and self-healing.
  */
 export async function detectInterruptedJobs(): Promise<void> {
-  const db = getDb();
+  const db = (await getDb());
   const cutoff = new Date(Date.now() - 60 * 1000);
   await db
     .update(schema.syncJobs)
@@ -420,7 +420,7 @@ export async function detectInterruptedJobs(): Promise<void> {
 
 /** Get the most recent active job (if any). Used by status banners. */
 export async function getActiveJob(): Promise<SyncJob | null> {
-  const db = getDb();
+  const db = (await getDb());
   const job = await db
     .select()
     .from(schema.syncJobs)
@@ -434,7 +434,7 @@ export async function getActiveJob(): Promise<SyncJob | null> {
 }
 
 export async function getMostRecentJob(): Promise<SyncJob | null> {
-  const db = getDb();
+  const db = (await getDb());
   const job = await db
     .select()
     .from(schema.syncJobs)
@@ -449,7 +449,7 @@ export async function getMostRecentJob(): Promise<SyncJob | null> {
  * to render a sync history table.
  */
 export async function listRecentJobs(limit = 20): Promise<SyncJob[]> {
-  const db = getDb();
+  const db = (await getDb());
   return db
     .select()
     .from(schema.syncJobs)
@@ -459,7 +459,7 @@ export async function listRecentJobs(limit = 20): Promise<SyncJob[]> {
 }
 
 export async function resumeJob(jobId: number): Promise<SyncJob> {
-  const db = getDb();
+  const db = (await getDb());
   const job = await db
     .select()
     .from(schema.syncJobs)

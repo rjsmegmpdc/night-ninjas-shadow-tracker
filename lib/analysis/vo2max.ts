@@ -31,7 +31,7 @@ function isMissingTable(e: unknown): boolean {
 }
 
 async function readStoredObservations(): Promise<Vo2Observation[]> {
-  const db = getDb();
+  const db = (await getDb());
   try {
     const rows = await db.select().from(schema.vo2maxObservations).all();
     return rows.map((r) => ({
@@ -46,7 +46,7 @@ async function readStoredObservations(): Promise<Vo2Observation[]> {
 }
 
 async function readDeviceObservations(): Promise<Vo2Observation[]> {
-  const db = getDb();
+  const db = (await getDb());
   try {
     const rows = await db
       .select()

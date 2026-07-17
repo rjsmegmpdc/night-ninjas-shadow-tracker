@@ -30,7 +30,7 @@ export async function getRampPlanForActivePeriod(
 ): Promise<RampPlan | null> {
   if (phase.kind !== 'pre-program') return null;
 
-  const db = getDb();
+  const db = (await getDb());
   let period;
   try {
     period = await db

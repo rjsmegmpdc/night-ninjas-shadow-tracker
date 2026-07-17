@@ -39,7 +39,7 @@ const TYPE_COLORS: Record<string, string> = {
  * Excludes ninja_loop_holiday entries (those are managed by NinjaLoopSection).
  */
 export async function CommitmentSection() {
-  const events = await getDb()
+  const events = await (await getDb())
     .select()
     .from(schema.calendarEvents)
     .where(ne(schema.calendarEvents.eventType, 'ninja_loop_holiday'))

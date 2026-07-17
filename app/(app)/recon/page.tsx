@@ -29,7 +29,7 @@ import { getActivePlan } from '@/lib/plans/active-plan';
 export default async function ReconPage() {
   logPageView('/recon');
 
-  const activityCount = await getDb().$count(schema.activities);
+  const activityCount = await (await getDb()).$count(schema.activities);
   const activePlan = await getActivePlan();
 
   if (activityCount === 0) {

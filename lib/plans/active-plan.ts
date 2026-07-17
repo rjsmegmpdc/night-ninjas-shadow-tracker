@@ -35,7 +35,7 @@ const KEY_DOJO = 'plan.dojo';
  * one (no goal race set yet) — caller should show empty state.
  */
 export async function getActivePlan(): Promise<ActivePlan | null> {
-  const db = getDb();
+  const db = (await getDb());
 
   // 1. Find the goal race
   const goalRace = await db

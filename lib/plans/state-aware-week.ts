@@ -96,7 +96,7 @@ export async function resolveCoachAdjustment(opts: {
   rawTemplate: WeekTemplate;
 }): Promise<CoachAdjustmentView> {
   const { dojo, weekStartIso, weekNumber, programWeeks, rawTemplate } = opts;
-  const db = getDb();
+  const db = (await getDb());
   const mode = await getCoachMode();
   // Phase 4: read interruptions once - drives both the injury/illness AUTOMATIC
   // gate (locked rule: athlete-logged injuries never auto-adjust; the athlete
@@ -275,7 +275,7 @@ export async function resolveCoachAdjustment(opts: {
 
 /** Open (pending) proposals count - cheap badge for surfaces. */
 export async function countOpenProposals(): Promise<number> {
-  const db = getDb();
+  const db = (await getDb());
   const rows = await db
     .select({ id: schema.planAdjustments.id })
     .from(schema.planAdjustments)

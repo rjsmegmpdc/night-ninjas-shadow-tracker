@@ -40,7 +40,7 @@ const NUDGE_THRESHOLD_PCT = 80;
 const RACE_DISTANCES_KM = [5, 10, 21.0975, 42.195];
 
 export async function getAllShoesWithStats(): Promise<ShoeWithStats[]> {
-  const db = getDb();
+  const db = (await getDb());
   const all = await db
     .select()
     .from(schema.shoes)
@@ -52,14 +52,14 @@ export async function getAllShoesWithStats(): Promise<ShoeWithStats[]> {
 }
 
 export async function getShoeWithStats(id: number): Promise<ShoeWithStats | null> {
-  const db = getDb();
+  const db = (await getDb());
   const shoe = await db.select().from(schema.shoes).where(eq(schema.shoes.id, id)).get();
   if (!shoe) return null;
   return enrichShoe(shoe);
 }
 
 async function enrichShoe(shoe: Shoe): Promise<ShoeWithStats> {
-  const db = getDb();
+  const db = (await getDb());
 
   // Collect activity rows once — we need date+distance for first/last/recent
   // pace in addition to count.
@@ -191,7 +191,7 @@ function projectExpiryDate({
 }
 
 async function getBestRacesForShoe(shoe: Shoe): Promise<ShoeWithStats['bestRaces']> {
-  const db = getDb();
+  const db = (await getDb());
 
   let activities: {
     name: string | null;
@@ -268,7 +268,7 @@ export async function getShoeInsights(): Promise<{
   longestServingShoe: { name: string; km: number; days: number } | null;
   highestMileageShoe: { name: string; km: number } | null;
 }> {
-  const db = getDb();
+  const db = (await getDb());
   const all = await db.select().from(schema.shoes).all();
 
   const lifetimeKm = all.reduce((sum, s) => sum + (s.stravaDistanceKm ?? 0), 0);
@@ -313,7 +313,7 @@ export async function getMostUrgentNudge(): Promise<ShoeWithStats | null> {
 }
 
 export async function listPriceWatchesForShoe(shoeId: number) {
-  const db = getDb();
+  const db = (await getDb());
   return db
     .select()
     .from(schema.shoePriceWatches)

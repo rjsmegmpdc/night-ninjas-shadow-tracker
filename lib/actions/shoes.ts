@@ -27,7 +27,7 @@ export async function retireShoe(formData: FormData) {
   const id = parseInt(formData.get('id')?.toString() || '0', 10);
   if (!id) return;
 
-  await getDb()
+  await (await getDb())
     .update(schema.shoes)
     .set({
       status: 'retired',
@@ -45,7 +45,7 @@ export async function unretireShoe(formData: FormData) {
   const id = parseInt(formData.get('id')?.toString() || '0', 10);
   if (!id) return;
 
-  await getDb()
+  await (await getDb())
     .update(schema.shoes)
     .set({
       status: 'active',
@@ -63,7 +63,7 @@ export async function dismissNudge(formData: FormData) {
   const id = parseInt(formData.get('id')?.toString() || '0', 10);
   if (!id) return;
 
-  await getDb()
+  await (await getDb())
     .update(schema.shoes)
     .set({ nudgeDismissedAt: new Date(), updatedAt: new Date() })
     .where(eq(schema.shoes.id, id));
@@ -80,7 +80,7 @@ export async function toggleFavourite(formData: FormData) {
   const id = parseInt(formData.get('id')?.toString() || '0', 10);
   if (!id) return;
 
-  const db = getDb();
+  const db = (await getDb());
   const current = await db
     .select({ isFavourite: schema.shoes.isFavourite })
     .from(schema.shoes)
@@ -105,7 +105,7 @@ export async function setUserTargetKm(formData: FormData) {
   const target = targetStr ? parseFloat(targetStr) : null;
   if (target != null && (!isFinite(target) || target <= 0)) return;
 
-  await getDb()
+  await (await getDb())
     .update(schema.shoes)
     .set({
       userTargetKm: target,
@@ -125,7 +125,7 @@ export async function updateShoeNotes(formData: FormData) {
   const notes = formData.get('notes')?.toString().trim() || null;
   if (!id) return;
 
-  await getDb()
+  await (await getDb())
     .update(schema.shoes)
     .set({ notes, updatedAt: new Date() })
     .where(eq(schema.shoes.id, id));
@@ -155,7 +155,7 @@ export async function createManualShoe(formData: FormData) {
 
   const userTargetKm = userTargetStr ? parseFloat(userTargetStr) : null;
 
-  await getDb().insert(schema.shoes).values({
+  await (await getDb()).insert(schema.shoes).values({
     stravaGearId: null,
     name,
     brand: brandInput ?? match?.brand ?? null,
@@ -180,7 +180,7 @@ export async function deleteManualShoe(formData: FormData) {
   const id = parseInt(formData.get('id')?.toString() || '0', 10);
   if (!id) return;
 
-  const db = getDb();
+  const db = (await getDb());
   // Only allow deletion of manual-entry shoes — Strava-sourced shoes can't
   // be deleted (they'd just come back on next sync)
   const shoe = await db.select().from(schema.shoes).where(eq(schema.shoes.id, id)).get();
@@ -206,7 +206,7 @@ export async function assignActivityToManualShoe(formData: FormData) {
   const shoeId = parseInt(formData.get('shoeId')?.toString() || '0', 10);
   if (!activityId || !shoeId) return;
 
-  await getDb()
+  await (await getDb())
     .insert(schema.activityShoeAssignments)
     .values({ activityId, shoeId })
     .onConflictDoUpdate({
@@ -221,7 +221,7 @@ export async function unassignActivityFromManualShoe(formData: FormData) {
   const activityId = parseInt(formData.get('activityId')?.toString() || '0', 10);
   if (!activityId) return;
 
-  await getDb()
+  await (await getDb())
     .delete(schema.activityShoeAssignments)
     .where(eq(schema.activityShoeAssignments.activityId, activityId));
 
@@ -244,7 +244,7 @@ export async function logPriceWatch(formData: FormData) {
   const price = parseFloat(priceStr);
   if (!isFinite(price) || price <= 0) return;
 
-  await getDb().insert(schema.shoePriceWatches).values({
+  await (await getDb()).insert(schema.shoePriceWatches).values({
     shoeId,
     retailer,
     price,
@@ -259,7 +259,7 @@ export async function logPriceWatch(formData: FormData) {
 export async function deletePriceWatch(formData: FormData) {
   const id = parseInt(formData.get('id')?.toString() || '0', 10);
   if (!id) return;
-  await getDb().delete(schema.shoePriceWatches).where(eq(schema.shoePriceWatches.id, id));
+  await (await getDb()).delete(schema.shoePriceWatches).where(eq(schema.shoePriceWatches.id, id));
   revalidateShoes();
 }
 
@@ -292,7 +292,7 @@ export async function uploadShoePhoto(formData: FormData) {
   fs.writeFileSync(filePath, buffer);
 
   // Update shoe row
-  await getDb()
+  await (await getDb())
     .update(schema.shoes)
     .set({ photoFilename: filename, updatedAt: new Date() })
     .where(eq(schema.shoes.id, id));
@@ -304,7 +304,7 @@ export async function removeShoePhoto(formData: FormData) {
   const id = parseInt(formData.get('id')?.toString() || '0', 10);
   if (!id) return;
 
-  const db = getDb();
+  const db = (await getDb());
   const shoe = await db.select().from(schema.shoes).where(eq(schema.shoes.id, id)).get();
   if (!shoe?.photoFilename) return;
 

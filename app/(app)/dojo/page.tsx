@@ -53,7 +53,7 @@ export default async function DojoPage() {
   }
 
   // Read currently-selected dojo
-  const db = getDb();
+  const db = (await getDb());
   const goalRace = await db
     .select()
     .from(schema.races)

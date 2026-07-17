@@ -27,7 +27,7 @@ export async function backfillActivePlanPeriod(): Promise<{
   startDate?: string;
   dojo?: string;
 }> {
-  const db = getDb();
+  const db = (await getDb());
 
   // Check current state before invoking the seeder
   const before = await db

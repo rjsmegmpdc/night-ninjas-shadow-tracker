@@ -19,7 +19,7 @@ import { getDb, schema } from '@/lib/db';
  *   < 2 weeks  → bold accent + ring
  */
 export async function RaceCountdown() {
-  const db = getDb();
+  const db = (await getDb());
   const today = new Date().toISOString().slice(0, 10);
 
   const goalRace = await db

@@ -25,7 +25,7 @@ export interface WeekStats {
 }
 
 export async function topWeeks(limit = 10): Promise<WeekStats[]> {
-  const db = getDb();
+  const db = (await getDb());
   const rows = await db
     .select({
       weekStart: sql<string>`date(${schema.activities.startDateLocal}, 'weekday 0', '-6 days')`,

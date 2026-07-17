@@ -24,7 +24,7 @@ export async function ensureShoesForGearIds(gearIds: string[]): Promise<void> {
   const uniqueIds = [...new Set(gearIds.filter(Boolean))];
   if (uniqueIds.length === 0) return;
 
-  const db = getDb();
+  const db = (await getDb());
 
   // Look up existing rows in one query
   const existing = await db
@@ -52,7 +52,7 @@ export async function ensureShoesForGearIds(gearIds: string[]): Promise<void> {
 
 async function createFromStravaGear(gearId: string): Promise<void> {
   const gear = await fetchGear(gearId);
-  const db = getDb();
+  const db = (await getDb());
 
   // Match against the local CSV
   const match = matchShoeName(gear.name);
@@ -87,7 +87,7 @@ async function refreshStravaDistance(gearId: string): Promise<void> {
   // Lightweight refresh — re-fetch gear and update distance + retired flag
   // We don't refresh CSV match (user might have set custom values)
   const gear = await fetchGear(gearId);
-  const db = getDb();
+  const db = (await getDb());
   const distanceKm = gear.distance != null ? gear.distance / 1000 : null;
 
   await db

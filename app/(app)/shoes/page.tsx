@@ -26,7 +26,7 @@ import { ShoeTable } from '@/components/shoes/shoe-table';
 export default async function ShoesPage() {
   logPageView('/shoes');
 
-  const activityCount = await getDb().$count(schema.activities);
+  const activityCount = await (await getDb()).$count(schema.activities);
   const allShoes = await getAllShoesWithStats();
   const active = allShoes.filter((s) => s.status === 'active');
   const retired = allShoes.filter((s) => s.status === 'retired');

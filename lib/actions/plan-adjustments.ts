@@ -20,7 +20,7 @@ import { getDb, schema } from '@/lib/db';
 export async function applyPlanAdjustment(formData: FormData): Promise<void> {
   const id = Number(formData.get('id'));
   if (!Number.isFinite(id)) return;
-  const db = getDb();
+  const db = (await getDb());
   await db.update(schema.planAdjustments)
     .set({ appliedAt: new Date().toISOString() })
     .where(eq(schema.planAdjustments.id, id));
@@ -31,7 +31,7 @@ export async function applyPlanAdjustment(formData: FormData): Promise<void> {
 export async function dismissPlanAdjustment(formData: FormData): Promise<void> {
   const id = Number(formData.get('id'));
   if (!Number.isFinite(id)) return;
-  const db = getDb();
+  const db = (await getDb());
   await db.update(schema.planAdjustments)
     .set({ dismissedAt: new Date().toISOString() })
     .where(eq(schema.planAdjustments.id, id));

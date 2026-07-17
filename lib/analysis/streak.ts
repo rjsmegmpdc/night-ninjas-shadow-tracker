@@ -38,7 +38,7 @@ export interface StreakState {
 const RUN_SPORT_TYPES = new Set(['Run', 'TrailRun', 'VirtualRun']);
 
 export async function getStreakState(): Promise<StreakState | null> {
-  const db = getDb();
+  const db = (await getDb());
 
   const settingRow = await db
     .select()

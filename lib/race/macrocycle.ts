@@ -38,7 +38,7 @@ function weekEndIso(mondayIso: string): string {
 }
 
 export async function getMacrocycleContext(): Promise<MacrocycleContext | null> {
-  const db = getDb();
+  const db = (await getDb());
   const goal = await db.select().from(schema.races).where(eq(schema.races.isGoal, true)).get();
   if (!goal) return null;
 

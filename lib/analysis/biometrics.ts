@@ -29,7 +29,7 @@ function isMissingTable(e: unknown): boolean {
 }
 
 export async function getResolvedMetrics(startIso: string, endIso: string): Promise<ResolvedDayMetrics[]> {
-  const db = getDb();
+  const db = (await getDb());
   let rows: (typeof schema.dailyHealthMetrics.$inferSelect)[];
   try {
     rows = await db

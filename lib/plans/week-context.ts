@@ -22,7 +22,7 @@ export async function resolveWeekContext(opts: {
   weekStartIso: string;
   weekEndIso: string;
 }): Promise<WeekContext> {
-  const db = getDb();
+  const db = (await getDb());
   const { weekStartIso, weekEndIso } = opts;
 
   // Goal race — single row

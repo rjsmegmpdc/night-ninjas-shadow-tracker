@@ -20,7 +20,7 @@ import { TuneUpRow } from './tune-up-row';
  * countdown header link can deep-link to it.
  */
 export async function RaceSection() {
-  const races = await getDb()
+  const races = await (await getDb())
     .select()
     .from(schema.races)
     .orderBy(asc(schema.races.raceDate))

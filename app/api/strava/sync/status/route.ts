@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   let job;
   if (jobIdStr) {
     const id = parseInt(jobIdStr, 10);
-    job = await getDb()
+    job = await (await getDb())
       .select()
       .from(schema.syncJobs)
       .where(eq(schema.syncJobs.id, id))
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Total activities currently in the DB
-  const totalActivities = await getDb().$count(schema.activities);
+  const totalActivities = await (await getDb()).$count(schema.activities);
 
   return NextResponse.json({
     job: job

@@ -55,7 +55,7 @@ export async function logInterruption(formData: FormData): Promise<InterruptionR
       type === 'injury' ? formData.get('body_region')?.toString() || null : null;
     const note = formData.get('note')?.toString() || null;
 
-    const inserted = await getDb()
+    const inserted = await (await getDb())
       .insert(schema.interruptions)
       .values({ type, bodyRegion, severity, startDate, endDate, note })
       .returning({ id: schema.interruptions.id })
@@ -73,7 +73,7 @@ export async function resolveInterruption(formData: FormData): Promise<Interrupt
     const id = Number(formData.get('id'));
     if (!Number.isInteger(id)) return { ok: false, error: 'Missing interruption id.' };
     const endDate = (formData.get('end_date')?.toString() || todayIso()).slice(0, 10);
-    await getDb()
+    await (await getDb())
       .update(schema.interruptions)
       .set({ endDate })
       .where(eq(schema.interruptions.id, id));
@@ -89,7 +89,7 @@ export async function deleteInterruption(formData: FormData): Promise<Interrupti
   try {
     const id = Number(formData.get('id'));
     if (!Number.isInteger(id)) return { ok: false, error: 'Missing interruption id.' };
-    await getDb().delete(schema.interruptions).where(eq(schema.interruptions.id, id));
+    await (await getDb()).delete(schema.interruptions).where(eq(schema.interruptions.id, id));
     revalidate();
     return { ok: true, id };
   } catch (e) {

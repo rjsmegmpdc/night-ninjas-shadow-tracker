@@ -24,7 +24,7 @@ export interface GarminSyncResult {
  * Default 7 for an incremental pull; backfill passes a larger number.
  */
 export async function syncGarminRange(days = 7): Promise<GarminSyncResult> {
-  const db = getDb();
+  const db = (await getDb());
   let daysWritten = 0;
   let daysSkipped = 0;
 

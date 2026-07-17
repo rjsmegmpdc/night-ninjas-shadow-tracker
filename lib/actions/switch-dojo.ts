@@ -29,7 +29,7 @@ export async function switchDojo(formData: FormData) {
     throw new Error('Invalid dojo');
   }
 
-  const db = getDb();
+  const db = (await getDb());
 
   // Read current dojo
   const current = await db

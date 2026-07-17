@@ -117,7 +117,7 @@ async function resolveComplianceForActivity(activity: Activity): Promise<CoachRe
 
 /** Build the coach read for the most recent activity. Null if no activity exists yet. */
 export async function getCoachRead(): Promise<CoachRead | null> {
-  const db = getDb();
+  const db = (await getDb());
   const latest = await db
     .select()
     .from(schema.activities)

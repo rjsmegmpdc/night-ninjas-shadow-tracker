@@ -63,7 +63,7 @@ export async function wipeEverything(formData: FormData) {
   if (confirm !== 'wipe') throw new Error('Confirmation token missing');
   if (typed !== 'WIPE') throw new Error('Type "WIPE" exactly to confirm');
 
-  const db = getDb();
+  const db = (await getDb());
 
   // Delete in any order — all data, no schema. Foreign keys are loose.
   await db.delete(schema.activities);
@@ -92,7 +92,7 @@ export async function wipeEverything(formData: FormData) {
  * Explorer).
  */
 export async function exportData(): Promise<{ path: string; sizeKb: number }> {
-  const db = getDb();
+  const db = (await getDb());
 
   const dump = {
     exportedAt: new Date().toISOString(),
@@ -142,7 +142,7 @@ export async function getDataStats(): Promise<{
   syncJobCount: number;
   dbSizeKb: number | null;
 }> {
-  const db = getDb();
+  const db = (await getDb());
   const activityCount = await db.$count(schema.activities);
   const raceCount = await db.$count(schema.races);
   const syncJobCount = await db.$count(schema.syncJobs);

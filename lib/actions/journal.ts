@@ -89,7 +89,7 @@ export async function logJournalEntry(formData: FormData): Promise<JournalResult
   if (notesProvided) { insertVals.notes = notes; updates.notes = notes; }
 
   try {
-    await getDb()
+    await (await getDb())
       .insert(schema.journal)
       .values(insertVals)
       .onConflictDoUpdate({ target: schema.journal.date, set: updates });
@@ -120,7 +120,7 @@ export async function recordPromptSkip(date: string, promptId: string): Promise<
 
   const key = promptSkipKey(date, promptId);
   try {
-    await getDb()
+    await (await getDb())
       .insert(schema.settings)
       .values({ key, value: 'true' })
       .onConflictDoUpdate({ target: schema.settings.key, set: { value: 'true', updatedAt: sql`(unixepoch())` } });
@@ -136,7 +136,7 @@ export async function recordPromptSkip(date: string, promptId: string): Promise<
 export async function getSkippedPromptIds(date: string): Promise<string[]> {
   if (!DATE_RE.test(date)) return [];
   const prefix = promptSkipKey(date, '');
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({ key: schema.settings.key })
     .from(schema.settings)
     .where(like(schema.settings.key, `${prefix}%`))

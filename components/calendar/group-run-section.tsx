@@ -27,7 +27,7 @@ const SESSION_TYPES = [
  * Server component: queries DB, posts via server actions.
  */
 export async function GroupRunSection() {
-  const sessions = await getDb()
+  const sessions = await (await getDb())
     .select()
     .from(schema.recurringSessions)
     .orderBy(asc(schema.recurringSessions.dow))

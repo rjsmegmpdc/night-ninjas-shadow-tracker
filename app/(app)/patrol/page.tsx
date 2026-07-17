@@ -66,7 +66,7 @@ import { InterruptionIndicator } from '@/components/patrol/interruption-indicato
  */
 export default async function PatrolPage() {
   logPageView('/patrol');
-  const activityCount = await getDb().$count(schema.activities);
+  const activityCount = await (await getDb()).$count(schema.activities);
   const hasData = activityCount > 0;
 
   return (
@@ -99,7 +99,7 @@ async function PatrolDashboard() {
     // getActivePlan() returns null if either the goal race is missing OR
     // it's missing a target time. The user has reasonably enough context
     // to know which one to fix when we tell them precisely.
-    const goalRace = await getDb()
+    const goalRace = await (await getDb())
       .select()
       .from(schema.races)
       .where(eq(schema.races.isGoal, true))

@@ -83,7 +83,7 @@ export async function GoalRaceChip({
   volumePct: number;
 }) {
   const today = new Date().toISOString().slice(0, 10);
-  const goalRace = await getDb()
+  const goalRace = await (await getDb())
     .select()
     .from(schema.races)
     .where(and(eq(schema.races.isGoal, true), gte(schema.races.raceDate, today)))

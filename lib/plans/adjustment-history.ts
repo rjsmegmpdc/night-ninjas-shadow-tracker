@@ -46,7 +46,7 @@ function statusOf(r: typeof schema.planAdjustments.$inferSelect): AdjustmentStat
 /** Full proposal history, newest proposal first. */
 export async function getPlanAdjustmentsHistory(limit = 200): Promise<AdjustmentHistoryRow[]> {
   try {
-    const db = getDb();
+    const db = (await getDb());
     const rows = await db.select().from(schema.planAdjustments).all();
     rows.sort((a, b) => (a.proposedAt < b.proposedAt ? 1 : -1));
     return rows.slice(0, limit).map((r) => ({

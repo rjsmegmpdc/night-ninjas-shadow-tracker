@@ -21,7 +21,7 @@ export async function createCalendarEvent(formData: FormData) {
 
   if (!startDate) throw new Error('Start date required.');
 
-  await getDb().insert(schema.calendarEvents).values({
+  await (await getDb()).insert(schema.calendarEvents).values({
     eventType: eventType || 'other',
     title,
     startDate,
@@ -36,7 +36,7 @@ export async function createCalendarEvent(formData: FormData) {
 export async function deleteCalendarEvent(formData: FormData) {
   const id = parseInt(formData.get('id')?.toString() || '0', 10);
   if (!id) return;
-  await getDb().delete(schema.calendarEvents).where(eq(schema.calendarEvents.id, id));
+  await (await getDb()).delete(schema.calendarEvents).where(eq(schema.calendarEvents.id, id));
   revalidateEvents();
 }
 
@@ -47,7 +47,7 @@ export async function deleteCalendarEvent(formData: FormData) {
  * -------------------------------------------------------------------------- */
 
 export async function enableNinjaLoopHolidays() {
-  const db = getDb();
+  const db = (await getDb());
   const today = new Date().toISOString().slice(0, 10);
   const yearOut = new Date();
   yearOut.setFullYear(yearOut.getFullYear() + 1);
@@ -80,7 +80,7 @@ export async function enableNinjaLoopHolidays() {
 }
 
 export async function disableNinjaLoopHolidays() {
-  await getDb()
+  await (await getDb())
     .delete(schema.calendarEvents)
     .where(eq(schema.calendarEvents.eventType, 'ninja_loop_holiday'));
   revalidateEvents();

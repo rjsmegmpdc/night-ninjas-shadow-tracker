@@ -16,7 +16,7 @@ const KEY_LAST_SOURCE = 'nz_holidays.last_source';
  * -------------------------------------------------------------------------- */
 
 async function setSetting(key: string, value: string) {
-  const db = getDb();
+  const db = (await getDb());
   await db
     .insert(schema.settings)
     .values({ key, value })
@@ -27,7 +27,7 @@ async function setSetting(key: string, value: string) {
 }
 
 async function getSetting(key: string): Promise<string | null> {
-  const db = getDb();
+  const db = (await getDb());
   const row = await db
     .select()
     .from(schema.settings)
@@ -45,7 +45,7 @@ export async function refreshNzHolidays(): Promise<{
   count: number;
   error?: string;
 }> {
-  const db = getDb();
+  const db = (await getDb());
   try {
     const fresh = await fetchNzHolidaysFromIcal();
 
@@ -92,7 +92,7 @@ export async function refreshNzHolidays(): Promise<{
  * -------------------------------------------------------------------------- */
 
 export async function autoRefreshIfDue(): Promise<void> {
-  const db = getDb();
+  const db = (await getDb());
 
   // 1. Empty table → refresh
   const count = await db.$count(schema.nzHolidays);
@@ -157,7 +157,7 @@ export async function deleteHoliday(formData: FormData) {
   const name = formData.get('name')?.toString();
   if (!date || !name) return;
 
-  const db = getDb();
+  const db = (await getDb());
   await db
     .delete(schema.nzHolidays)
     .where(

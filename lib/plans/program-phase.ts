@@ -59,7 +59,7 @@ const POST_RACE_WEEKS = 4;    // recovery window after race day
  * Computes phase, countdowns, and a display label/subline.
  */
 export async function getProgramPhase(now: Date = new Date()): Promise<ProgramPhase> {
-  const db = getDb();
+  const db = (await getDb());
 
   // Active plan period
   let period;

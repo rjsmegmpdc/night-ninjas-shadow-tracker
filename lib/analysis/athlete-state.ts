@@ -98,7 +98,7 @@ async function queryDailyLoad(
   windowStart.setUTCDate(windowStart.getUTCDate() - windowDays);
   const windowStartIso = windowStart.toISOString().slice(0, 10);
 
-  const db = getDb();
+  const db = (await getDb());
   const activities = await db
     .select()
     .from(schema.activities)

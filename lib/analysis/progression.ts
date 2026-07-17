@@ -242,7 +242,7 @@ async function getWeeklyRunStats(
   fromIso: string,
   toIso: string
 ): Promise<WeekRunStats> {
-  const db = getDb();
+  const db = (await getDb());
   const activities = await db
     .select()
     .from(schema.activities)

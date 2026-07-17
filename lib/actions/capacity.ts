@@ -18,7 +18,7 @@ export async function saveCapacity(formData: FormData) {
   const weekly = formData.get('weeklyVolumeCapKm')?.toString().trim() || '';
   const long = formData.get('longRunCapKm')?.toString().trim() || '';
 
-  const db = getDb();
+  const db = (await getDb());
   for (const [key, value] of [
     [SETTINGS_KEYS.CAPACITY_WEEKLY, weekly],
     [SETTINGS_KEYS.CAPACITY_LONG, long],

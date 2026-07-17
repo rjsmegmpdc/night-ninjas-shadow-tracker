@@ -85,7 +85,7 @@ export async function createManualActivity(formData: FormData): Promise<ManualAc
 
     const sourceId = 'manual-' + crypto.randomUUID();
 
-    const inserted = await getDb()
+    const inserted = await (await getDb())
       .insert(schema.activities)
       .values({
         source: 'manual',
@@ -105,7 +105,7 @@ export async function createManualActivity(formData: FormData): Promise<ManualAc
       .get();
 
     if (validated.value.rpe !== null) {
-      await getDb()
+      await (await getDb())
         .insert(schema.journal)
         .values({ date: validated.value.dateIso, perceivedEffort: validated.value.rpe })
         .onConflictDoUpdate({
@@ -137,7 +137,7 @@ export async function createManualActivity(formData: FormData): Promise<ManualAc
 
 export async function restoreManualActivity(activityId: number): Promise<RestoreManualActivityResult> {
   try {
-    const db = getDb();
+    const db = (await getDb());
     const manualRow = await db
       .select()
       .from(schema.activities)

@@ -30,7 +30,7 @@ export async function NinjaLoopSection() {
   const today = new Date().toISOString().slice(0, 10);
 
   const [ninjaLoops, upcoming, personalDays, status] = await Promise.all([
-    getDb()
+    (await getDb())
       .select()
       .from(schema.calendarEvents)
       .where(
@@ -43,7 +43,7 @@ export async function NinjaLoopSection() {
     upcomingHolidays(50), // pull all upcoming, no longer capped at 6
     // Personal days: birthdays, anniversaries — anything tagged 'birthday'
     // by the user via AddPersonalDayForm
-    getDb()
+    (await getDb())
       .select()
       .from(schema.calendarEvents)
       .where(

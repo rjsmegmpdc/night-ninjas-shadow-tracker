@@ -23,7 +23,7 @@ export default async function JournalPage() {
   const todayIso = formatInTimeZone(new Date(), timezone, 'yyyy-MM-dd');
   const [view, todayJournal] = await Promise.all([
     getInterruptionsView(),
-    getDb().select().from(schema.journal).where(eq(schema.journal.date, todayIso)).get(),
+    (await getDb()).select().from(schema.journal).where(eq(schema.journal.date, todayIso)).get(),
   ]);
 
   return (

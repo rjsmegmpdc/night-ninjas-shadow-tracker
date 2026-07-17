@@ -46,7 +46,7 @@ function todayIso(): string {
 }
 
 async function readInterruptions(): Promise<Interruption[]> {
-  const db = getDb();
+  const db = (await getDb());
   try {
     const rows = await db.select().from(schema.interruptions).all();
     return rows.map((r) => ({

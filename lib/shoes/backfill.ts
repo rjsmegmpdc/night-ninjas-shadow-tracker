@@ -25,7 +25,7 @@ const BATCH_SIZE = 50;
 const SLEEP_BETWEEN_CALLS_MS = 200; // Polite spacing
 
 export async function createGearBackfillJob(): Promise<SyncJob> {
-  const db = getDb();
+  const db = (await getDb());
   const now = new Date();
   return db
     .insert(schema.syncJobs)
@@ -47,7 +47,7 @@ export async function createGearBackfillJob(): Promise<SyncJob> {
  * so the user can see the size of the work before triggering.
  */
 export async function countActivitiesNeedingBackfill(): Promise<number> {
-  const db = getDb();
+  const db = (await getDb());
   return db.$count(
     schema.activities,
     and(
@@ -58,7 +58,7 @@ export async function countActivitiesNeedingBackfill(): Promise<number> {
 }
 
 export async function runGearBackfillJob(jobId: number): Promise<SyncJob> {
-  const db = getDb();
+  const db = (await getDb());
 
   await db
     .update(schema.syncJobs)
@@ -171,7 +171,7 @@ export async function runGearBackfillJob(jobId: number): Promise<SyncJob> {
 }
 
 async function getJob(jobId: number): Promise<SyncJob> {
-  const db = getDb();
+  const db = (await getDb());
   const job = await db
     .select()
     .from(schema.syncJobs)

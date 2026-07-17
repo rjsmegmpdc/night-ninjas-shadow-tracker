@@ -147,7 +147,7 @@ async function resolveUnloggedSessions(todayLocalIso: string): Promise<UnloggedS
 }
 
 async function resolveTodaysJournal(todayLocalIso: string): Promise<JournalCompletenessInput | null> {
-  const row = await getDb()
+  const row = await (await getDb())
     .select({
       sleepQuality: schema.journal.sleepQuality,
       sleepHours: schema.journal.sleepHours,
@@ -185,7 +185,7 @@ async function resolveIntegrationErrors(): Promise<IntegrationErrorInput[]> {
  */
 async function resolveSupersededOverlaps(todayLocalIso: string): Promise<ManualOverlapInput[]> {
   const fromIso = addDaysIso(todayLocalIso, -7);
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select()
     .from(schema.activities)
     .where(

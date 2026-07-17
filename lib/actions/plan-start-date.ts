@@ -30,7 +30,7 @@ export async function setPlanStartDate(formData: FormData): Promise<SetStartDate
       return { ok: false, error: 'No active plan yet. Pick a dojo and set a goal race first.' };
     }
 
-    const db = getDb();
+    const db = (await getDb());
     await db
       .update(schema.planPeriods)
       .set({ startDate: raw })

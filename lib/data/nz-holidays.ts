@@ -26,7 +26,7 @@ export async function holidaysInRange(
   fromIso: string,
   toIso: string
 ): Promise<NzHoliday[]> {
-  const rows = await getDb()
+  const rows = await (await getDb())
     .select({
       date: schema.nzHolidays.date,
       name: schema.nzHolidays.name,

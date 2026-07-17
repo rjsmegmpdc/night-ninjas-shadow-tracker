@@ -54,7 +54,7 @@ function isMissingTableError(e: unknown): boolean {
 }
 
 export async function ensureActivePlanPeriod(): Promise<PlanPeriod | null> {
-  const db = getDb();
+  const db = (await getDb());
 
   let existing: PlanPeriod | undefined;
   try {
@@ -142,7 +142,7 @@ export async function ensureActivePlanPeriod(): Promise<PlanPeriod | null> {
  */
 export async function getPlanPeriodForDate(iso: string): Promise<PlanPeriod | null> {
   await ensureActivePlanPeriod();
-  const db = getDb();
+  const db = (await getDb());
 
   try {
     const period = await db
@@ -178,7 +178,7 @@ export async function getPlanPeriodsInRange(
   toIso: string
 ): Promise<PlanPeriod[]> {
   await ensureActivePlanPeriod();
-  const db = getDb();
+  const db = (await getDb());
 
   try {
     const periods = await db
@@ -238,7 +238,7 @@ export async function resolvePlanPeriod(
   }
 
   // Pull current weekly/long-run caps from settings (user preferences, not period-bound)
-  const db = getDb();
+  const db = (await getDb());
   const settingsRows = await db.select().from(schema.settings).all();
   const settingsMap = Object.fromEntries(settingsRows.map((r) => [r.key, r.value]));
   const weeklyCapStr = settingsMap['capacity.weekly_cap_km'];

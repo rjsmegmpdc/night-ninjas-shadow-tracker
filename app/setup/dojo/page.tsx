@@ -11,7 +11,7 @@ const STEPS = ['Welcome', 'Strava App', 'Connect', 'Dojo', 'Races', 'Weekly', 'S
 
 export default async function DojoPage() {
   // Read currently-selected dojo (if user is editing rather than picking fresh)
-  const db = getDb();
+  const db = (await getDb());
   const row = await db
     .select()
     .from(schema.settings)

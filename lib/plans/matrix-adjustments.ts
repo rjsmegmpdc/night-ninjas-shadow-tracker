@@ -35,7 +35,7 @@ export type { MatrixAdjustmentContext, WeekOverlayResult, AppliedWeek } from './
 export async function loadMatrixAdjustmentContext(): Promise<MatrixAdjustmentContext> {
   const appliedByWeek = new Map<string, AppliedWeek & { proposedAt: string }>();
   try {
-    const db = getDb();
+    const db = (await getDb());
     const rows = await db.select().from(schema.planAdjustments).all();
     for (const r of rows) {
       if (!r.appliedAt || !r.afterState || !r.weekStartIso) continue;

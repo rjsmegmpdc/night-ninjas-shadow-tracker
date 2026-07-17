@@ -2,6 +2,28 @@ import { sqliteTable, integer, text, real, index, uniqueIndex } from 'drizzle-or
 import { sql } from 'drizzle-orm';
 
 /* ----------------------------------------------------------------------------
+ * Athletes (cloud-1 groundwork, P0-1) — one row per authenticated user.
+ *
+ * `email` is expected to eventually map 1:1 to the Cloudflare Access
+ * authenticated identity. Every per-athlete data table below carries an
+ * `athlete_id` FK (defaulting to the seeded id-1 row, DEFAULT_ATHLETE_ID)
+ * so single-user behaviour is unchanged until real auth lands. This is
+ * groundwork only — no auth/session logic, no cross-athlete isolation yet.
+ * -------------------------------------------------------------------------- */
+export const athletes = sqliteTable('athletes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  email: text('email').notNull().unique(),
+  name: text('name'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`).notNull(),
+});
+
+export type Athlete = typeof athletes.$inferSelect;
+export type NewAthlete = typeof athletes.$inferInsert;
+
+/** Seeded single-athlete id — every per-athlete row defaults to this until real auth lands. */
+export const DEFAULT_ATHLETE_ID = 1;
+
+/* ----------------------------------------------------------------------------
  * Activities — the canonical table. Strava is the primary source today;
  * future Garmin / Coros / Apple Health imports also land here, distinguished
  * by the `source` column.
@@ -10,6 +32,7 @@ export const activities = sqliteTable(
   'activities',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    athleteId: integer('athlete_id').notNull().default(1).references(() => athletes.id),
     source: text('source', { enum: ['strava', 'garmin', 'coros', 'apple', 'manual'] }).notNull(),
     sourceId: text('source_id').notNull(), // Strava activity ID, etc.
 
@@ -56,6 +79,7 @@ export const activities = sqliteTable(
  * -------------------------------------------------------------------------- */
 export const plans = sqliteTable('plans', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  athleteId: integer('athlete_id').notNull().default(1).references(() => athletes.id),
   dojo: text('dojo', { enum: ['lydiard', 'hansons', 'custom'] }).notNull(),
   goalDistanceKm: real('goal_distance_km').notNull(), // 42.195 for marathon
   goalTimeS: integer('goal_time_s').notNull(),         // 12600 = 3:30:00
@@ -75,6 +99,7 @@ export const plans = sqliteTable('plans', {
  * -------------------------------------------------------------------------- */
 export const journal = sqliteTable('journal', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  athleteId: integer('athlete_id').notNull().default(1).references(() => athletes.id),
   date: text('date').notNull().unique(), // YYYY-MM-DD, local
 
   sleepQuality: integer('sleep_quality'),  // 1-10
@@ -111,6 +136,7 @@ export const settings = sqliteTable('settings', {
  * -------------------------------------------------------------------------- */
 export const syncLog = sqliteTable('sync_log', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  athleteId: integer('athlete_id').notNull().default(1).references(() => athletes.id),
   source: text('source').notNull(),
   startedAt: integer('started_at', { mode: 'timestamp' }).default(sql`(unixepoch())`).notNull(),
   finishedAt: integer('finished_at', { mode: 'timestamp' }),
@@ -131,6 +157,7 @@ export const races = sqliteTable(
   'races',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    athleteId: integer('athlete_id').notNull().default(1).references(() => athletes.id),
     name: text('name').notNull(),
     distanceKm: real('distance_km').notNull(),
     raceDate: text('race_date').notNull(), // YYYY-MM-DD
@@ -155,6 +182,7 @@ export const races = sqliteTable(
  * -------------------------------------------------------------------------- */
 export const recurringSessions = sqliteTable('recurring_sessions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  athleteId: integer('athlete_id').notNull().default(1).references(() => athletes.id),
   name: text('name').notNull(),
   dow: integer('dow').notNull(), // 0=Mon ... 6=Sun. -1 reserved for is_ninja_loop=true.
   sessionType: text('session_type', {
@@ -189,6 +217,7 @@ export const calendarEvents = sqliteTable(
   'calendar_events',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    athleteId: integer('athlete_id').notNull().default(1).references(() => athletes.id),
     eventType: text('event_type', {
       enum: [
         'holiday',
@@ -261,6 +290,7 @@ export const syncJobs = sqliteTable(
   'sync_jobs',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    athleteId: integer('athlete_id').notNull().default(1).references(() => athletes.id),
     source: text('source', { enum: ['strava', 'garmin', 'coros', 'apple'] }).notNull(),
     jobType: text('job_type', {
       enum: ['initial_90d', 'extended_history', 'incremental', 'gear_backfill'],
@@ -330,6 +360,7 @@ export const shoes = sqliteTable(
   'shoes',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    athleteId: integer('athlete_id').notNull().default(1).references(() => athletes.id),
 
     /** Strava gear_id ('g1234567') if this shoe came from Strava. Null = manual. */
     stravaGearId: text('strava_gear_id').unique(),
@@ -470,6 +501,7 @@ export const planPeriods = sqliteTable(
   'plan_periods',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    athleteId: integer('athlete_id').notNull().default(1).references(() => athletes.id),
     dojo: text('dojo').notNull(),
 
     startDate: text('start_date').notNull(),
@@ -516,6 +548,7 @@ export const planAdjustments = sqliteTable(
   'plan_adjustments',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    athleteId: integer('athlete_id').notNull().default(1).references(() => athletes.id),
 
     proposedAt: text('proposed_at').notNull().default(sql`CURRENT_TIMESTAMP`),
     appliedAt: text('applied_at'),       // null until applied
@@ -575,6 +608,7 @@ export const dailyHealthMetrics = sqliteTable(
   'daily_health_metrics',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    athleteId: integer('athlete_id').notNull().default(1).references(() => athletes.id),
     /** ISO date 'YYYY-MM-DD' the metrics describe (local) */
     date: text('date').notNull(),
     /** garmin | apple-health | whoop | coros | manual | manual-lab */
@@ -619,6 +653,7 @@ export const vo2maxObservations = sqliteTable(
   'vo2max_observations',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    athleteId: integer('athlete_id').notNull().default(1).references(() => athletes.id),
     /** ISO date 'YYYY-MM-DD' the test was taken */
     date: text('date').notNull(),
     /** manual-lab | cooper | rockport (device is in daily_health_metrics) */
@@ -652,6 +687,7 @@ export const interruptions = sqliteTable(
   'interruptions',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    athleteId: integer('athlete_id').notNull().default(1).references(() => athletes.id),
     type: text('type', { enum: ['injury', 'illness', 'travel', 'other'] }).notNull(),
     /** Body region for injuries (e.g. 'calf', 'knee'); null otherwise */
     bodyRegion: text('body_region'),

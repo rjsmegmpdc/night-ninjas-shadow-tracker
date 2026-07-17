@@ -7,7 +7,7 @@ import { saveCapacity } from '@/lib/actions/capacity';
 import { SETTINGS_KEYS } from '@/lib/constants/settings-keys';
 
 async function readCapacity(): Promise<{ weeklyKm: string; longKm: string }> {
-  const db = getDb();
+  const db = (await getDb());
   const rows = await db.select().from(schema.settings).all();
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   return {

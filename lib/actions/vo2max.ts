@@ -29,7 +29,7 @@ export async function addLabVo2(formData: FormData): Promise<AddVo2Result> {
     }
     const date = (formData.get('date')?.toString() || todayIso()).slice(0, 10);
     const note = formData.get('note')?.toString() || null;
-    await getDb().insert(schema.vo2maxObservations).values({
+    await (await getDb()).insert(schema.vo2maxObservations).values({
       date, source: 'manual-lab', value, note,
       inputs: JSON.stringify({ entered: value }),
     });
@@ -49,7 +49,7 @@ export async function addCooperVo2(formData: FormData): Promise<AddVo2Result> {
     }
     const value = cooperVo2(distanceM);
     const date = (formData.get('date')?.toString() || todayIso()).slice(0, 10);
-    await getDb().insert(schema.vo2maxObservations).values({
+    await (await getDb()).insert(schema.vo2maxObservations).values({
       date, source: 'cooper', value,
       inputs: JSON.stringify({ distanceM }),
     });
@@ -73,7 +73,7 @@ export async function addRockportVo2(formData: FormData): Promise<AddVo2Result> 
     }
     const value = rockportVo2({ weightKg, age, sex, timeMin, endHr });
     const date = (formData.get('date')?.toString() || todayIso()).slice(0, 10);
-    await getDb().insert(schema.vo2maxObservations).values({
+    await (await getDb()).insert(schema.vo2maxObservations).values({
       date, source: 'rockport', value,
       inputs: JSON.stringify({ weightKg, age, sex, timeMin, endHr }),
     });

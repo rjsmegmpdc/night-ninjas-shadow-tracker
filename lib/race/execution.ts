@@ -84,7 +84,7 @@ export interface RaceExecutionView {
 }
 
 export async function getRaceExecution(): Promise<RaceExecutionView | null> {
-  const db = getDb();
+  const db = (await getDb());
   const goal = await db
     .select()
     .from(schema.races)

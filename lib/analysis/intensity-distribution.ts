@@ -54,7 +54,7 @@ export async function getIntensityDistribution(
   toIso: string,
   calibration: AthleteCalibration = {}
 ): Promise<IntensityDistribution | null> {
-  const db = getDb();
+  const db = (await getDb());
   const activities = await db
     .select()
     .from(schema.activities)

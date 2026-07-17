@@ -18,7 +18,7 @@ export async function selectDojo(formData: FormData) {
     throw new Error('Invalid dojo');
   }
 
-  const db = getDb();
+  const db = (await getDb());
   await db
     .insert(schema.settings)
     .values({ key: 'plan.dojo', value: dojo })

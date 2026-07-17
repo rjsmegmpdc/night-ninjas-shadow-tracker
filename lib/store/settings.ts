@@ -60,7 +60,7 @@ const KEY = {
 } as const;
 
 async function get(key: string): Promise<string | null> {
-  const row = await getDb()
+  const row = await (await getDb())
     .select()
     .from(schema.settings)
     .where(eq(schema.settings.key, key))
@@ -69,7 +69,7 @@ async function get(key: string): Promise<string | null> {
 }
 
 async function set(key: string, value: string): Promise<void> {
-  await getDb()
+  await (await getDb())
     .insert(schema.settings)
     .values({ key, value })
     .onConflictDoUpdate({

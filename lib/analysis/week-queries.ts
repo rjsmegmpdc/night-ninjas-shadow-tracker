@@ -26,7 +26,7 @@ export async function getActivitiesInRange(
   const lowerBound = fromIso; // '2026-04-28' < '2026-04-28T06:30:00'
   const upperBound = toIso + 'T99:99:99'; // sorts after any real time
 
-  return getDb()
+  return (await getDb())
     .select()
     .from(schema.activities)
     .where(

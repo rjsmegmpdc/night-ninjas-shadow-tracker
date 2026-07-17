@@ -56,7 +56,7 @@ async function resolveWeekCount(option: ClubWindowDefault): Promise<number> {
   if (option === '2w') return 2;
   if (option === '4w') return 4;
 
-  const db = getDb();
+  const db = (await getDb());
   const today = new Date();
   const { startIso: thisMondayIso } = currentWeekRange(today);
   const thisMonday = new Date(thisMondayIso + 'T00:00:00');

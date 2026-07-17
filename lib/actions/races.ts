@@ -53,7 +53,7 @@ export async function createRace(formData: FormData) {
     throw new Error('Goal races require a target time (e.g. 3:30:00).');
   }
 
-  const db = getDb();
+  const db = (await getDb());
 
   if (isGoal) {
     // Demote any existing goal race first — only one A-race at a time.
@@ -83,7 +83,7 @@ export async function createRace(formData: FormData) {
 export async function deleteRace(formData: FormData) {
   const id = parseInt(formData.get('id')?.toString() || '0', 10);
   if (!id) return;
-  await getDb().delete(schema.races).where(eq(schema.races.id, id));
+  await (await getDb()).delete(schema.races).where(eq(schema.races.id, id));
   logEvent({ type: 'action', name: 'deleteRace', outcome: 'ok' });
   revalidateRaces();
 }
@@ -121,7 +121,7 @@ export async function updateRace(formData: FormData) {
     throw new Error('Goal races require a target time (e.g. 3:30:00).');
   }
 
-  const db = getDb();
+  const db = (await getDb());
 
   if (isGoal) {
     // Demote any other goal race — only one A-race

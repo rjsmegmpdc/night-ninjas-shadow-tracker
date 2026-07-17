@@ -90,7 +90,7 @@ export async function cancelJob(formData: FormData): Promise<void> {
   const jobId = parseInt(formData.get('jobId')?.toString() || '0', 10);
   if (!jobId) return;
 
-  await getDb()
+  await (await getDb())
     .update(schema.syncJobs)
     .set({
       status: 'failed',
