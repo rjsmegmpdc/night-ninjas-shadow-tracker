@@ -24,6 +24,10 @@
 	// and gates the hostname before this flag ever takes effect on a real
 	// deploy — see the cloud-5b-b report for the Access-app id.
 	"workers_dev": true,
+	// Version preview URLs get their own hostnames OUTSIDE the Access app's
+	// coverage — an authentication bypass if left on. Wrangler enables them
+	// by default when this key is absent; keep this false.
+	"preview_urls": false,
 
 	"assets": {
 		"directory": ".open-next/assets",
