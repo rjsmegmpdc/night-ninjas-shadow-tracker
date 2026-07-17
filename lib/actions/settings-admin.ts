@@ -2,11 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import fs from 'node:fs';
-import path from 'node:path';
 import { sql } from 'drizzle-orm';
 import { getDb, schema } from '@/lib/db';
-import { resolveDataDir } from '@/lib/db/data-dir';
+import { isWorkerd } from '@/lib/runtime';
 import { clearStravaSecrets } from '@/lib/store/secrets';
 import { logEvent } from '@/lib/store/usage-log';
 
@@ -86,12 +84,15 @@ export async function wipeEverything(formData: FormData) {
 }
 
 /**
- * Export data — writes a JSON dump of every table to <dataDir>/exports/
- * with a timestamped filename. Returns the file path so the UI can
- * surface it (and, via the existing reveal-log mechanism, open in
- * Explorer).
+ * Build a JSON dump of every user-data table. Shared by the
+ * `/api/settings/export` download route (both node and workerd — see
+ * cloud-3: this used to be a server action that wrote the dump to
+ * <dataDir>/exports/<file>.json on disk and returned the path for the UI
+ * to display/copy; it's now served as a browser download instead, so
+ * there's no runtime fs write on either path and no behavioural gap
+ * between node and workerd).
  */
-export async function exportData(): Promise<{ path: string; sizeKb: number }> {
+export async function buildDataExport(): Promise<{ json: string; filename: string; sizeKb: number }> {
   const db = (await getDb());
 
   const dump = {
@@ -108,15 +109,10 @@ export async function exportData(): Promise<{ path: string; sizeKb: number }> {
     nzHolidays: await db.select().from(schema.nzHolidays).all(),
   };
 
-  const exportsDir = path.join(resolveDataDir(), 'exports');
-  if (!fs.existsSync(exportsDir)) fs.mkdirSync(exportsDir, { recursive: true });
-
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const filename = `shadow-tracker-export-${stamp}.json`;
-  const filePath = path.join(exportsDir, filename);
-
   const json = JSON.stringify(dump, null, 2);
-  fs.writeFileSync(filePath, json, 'utf8');
+  const sizeKb = Math.round(Buffer.byteLength(json) / 1024);
 
   logEvent({
     type: 'action',
@@ -124,11 +120,11 @@ export async function exportData(): Promise<{ path: string; sizeKb: number }> {
     outcome: 'ok',
     meta: {
       activityCount: dump.activities.length,
-      sizeKb: Math.round(Buffer.byteLength(json) / 1024),
+      sizeKb,
     },
   });
 
-  return { path: filePath, sizeKb: Math.round(Buffer.byteLength(json) / 1024) };
+  return { json, filename, sizeKb };
 }
 
 /**
@@ -166,15 +162,25 @@ export async function getDataStats(): Promise<{
     newestActivity = newest?.d.slice(0, 10) ?? null;
   }
 
-  // Best-effort DB size — wrap in try/catch in case path resolution fails
+  // Best-effort DB size — node only (a local .db file). On workerd, D1 is a
+  // remote database with no local file to stat, so this is always null
+  // there; skip touching fs entirely rather than reaching a workerd-side
+  // fs call that would just fail the try/catch anyway.
   let dbSizeKb: number | null = null;
-  try {
-    const dbPath = path.join(resolveDataDir(), 'shadow-tracker.db');
-    if (fs.existsSync(dbPath)) {
-      dbSizeKb = Math.round(fs.statSync(dbPath).size / 1024);
+  if (!isWorkerd()) {
+    try {
+      const [{ default: fs }, { default: path }, { resolveDataDir }] = await Promise.all([
+        import('node:fs'),
+        import('node:path'),
+        import('@/lib/db/data-dir'),
+      ]);
+      const dbPath = path.join(resolveDataDir(), 'shadow-tracker.db');
+      if (fs.existsSync(dbPath)) {
+        dbSizeKb = Math.round(fs.statSync(dbPath).size / 1024);
+      }
+    } catch {
+      /* ignore */
     }
-  } catch {
-    /* ignore */
   }
 
   return {

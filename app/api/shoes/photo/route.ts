@@ -1,15 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import fs from 'node:fs';
-import path from 'node:path';
-import { resolveDataDir } from '@/lib/db/data-dir';
+import { readShoePhoto } from '@/lib/storage/shoe-photos';
 
 /**
  * GET /api/shoes/photo?file=<filename>
  *
- * Serves shoe photos stored in <dataDir>/shoe-photos/.
- * The browser can't access the data dir directly, so we proxy via this
- * route. Filenames are validated against a strict pattern to prevent
- * directory traversal.
+ * Serves shoe photos through the storage adapter (disk on node, R2 `PHOTOS`
+ * binding on workerd — see lib/storage/shoe-photos.ts). The browser can't
+ * access either store directly, so we proxy via this route. Filenames are
+ * validated against a strict pattern to prevent directory traversal.
  */
 
 const FILENAME_PATTERN = /^shoe-\d+-\d+\.(jpg|jpeg|png|webp)$/;
@@ -22,20 +20,18 @@ export async function GET(req: NextRequest) {
     return new NextResponse('Invalid filename', { status: 400 });
   }
 
-  const filePath = path.join(resolveDataDir(), 'shoe-photos', filename);
-
-  if (!fs.existsSync(filePath)) {
+  const buffer = await readShoePhoto(filename);
+  if (!buffer) {
     return new NextResponse('Not found', { status: 404 });
   }
 
-  const buffer = fs.readFileSync(filePath);
   const ext = filename.split('.').pop()?.toLowerCase();
   const contentType =
     ext === 'png' ? 'image/png' :
     ext === 'webp' ? 'image/webp' :
     'image/jpeg';
 
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     headers: {
       'Content-Type': contentType,
       'Cache-Control': 'private, max-age=86400',

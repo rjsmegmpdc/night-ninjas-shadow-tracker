@@ -1,11 +1,9 @@
 'use server';
 
 import 'server-only';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import { revalidatePath } from 'next/cache';
 import { getDb, schema } from '@/lib/db';
+import { isWorkerd } from '@/lib/runtime';
 import { getActivePlan, currentWeekRange } from '@/lib/plans/active-plan';
 import { resolveWeekContext } from '@/lib/plans/week-context';
 import { evaluateWeek } from '@/lib/analysis/compliance';
@@ -196,17 +194,41 @@ async function buildCompletionSets(
 }
 
 /**
- * Compute the output directory for club share files.
+ * Write the generated schedule JSON to the local disk archive — node path
+ * only (see `generateClubShare`'s runtime branch below). Dynamic-imports
+ * `node:fs/promises`/`node:os`/`node:path` so they're never reachable when
+ * this module loads on workerd.
  *
  * Lives under the user's home directory in a 'VELOCITY/exports' folder.
  * Two locations:
  *   - exports/schedule-current.json - latest export (always at this path)
  *   - exports/history/{filename}    - timestamped archive of all exports
  */
-function shareExportRoot(): string {
+async function writeClubShareArchive(
+  parkrunId: string,
+  weekStartIso: string,
+  json: string
+): Promise<{ latestPath: string; archivedPath: string; filename: string }> {
+  const [{ mkdir, writeFile }, { homedir }, { join }] = await Promise.all([
+    import('node:fs/promises'),
+    import('node:os'),
+    import('node:path'),
+  ]);
+
   // Per BRAND.md: codebase keeps Night Ninjas paths under %APPDATA% for
   // existing data, but user-facing exports use VELOCITY naming.
-  return join(homedir(), 'VELOCITY', 'exports');
+  const exportDir = join(homedir(), 'VELOCITY', 'exports');
+  const historyDir = join(exportDir, 'history');
+  await mkdir(historyDir, { recursive: true });
+
+  const latestPath = join(exportDir, 'schedule-current.json');
+  const filename = buildShareFilename(parkrunId, weekStartIso);
+  const archivedPath = join(historyDir, filename);
+
+  await writeFile(latestPath, json, 'utf8');
+  await writeFile(archivedPath, json, 'utf8');
+
+  return { latestPath, archivedPath, filename };
 }
 
 /**
@@ -215,7 +237,10 @@ function shareExportRoot(): string {
  *   - Resolves the weeks to include
  *   - Computes the completed-session strip
  *   - Runs the pure generator
- *   - Writes the JSON to disk (latest + history)
+ *   - Node: writes the JSON to disk (latest + history), then optionally
+ *     publishes to GitHub if athlete ID + PAT are configured.
+ *   - Workerd: no local disk — GitHub publish (athlete ID + PAT) is the
+ *     only persistence path, so it's required rather than optional there.
  *   - Updates the last-generated timestamp setting
  *
  * Returns a result object the UI can render.
@@ -234,12 +259,23 @@ export async function generateClubShare(formData: FormData): Promise<GenerateSha
       return { ok: false, error: 'parkrun ID not set. Enter your ID in the settings card above.' };
     }
 
-    // Read optional GitHub publish settings (non-blocking — absence means local-only)
+    // Read optional GitHub publish settings (non-blocking on node — absence
+    // means local-only; required on workerd, checked just below).
     const [athleteId, passwordHash, githubPat] = await Promise.all([
       getAthleteId(),
       getSchedulePasswordHash(),
       getGitHubPat(),
     ]);
+
+    // Pre-flight: on workerd there is no local disk fallback, so GitHub
+    // publish must be configured up front.
+    if (isWorkerd() && !(athleteId && githubPat)) {
+      return {
+        ok: false,
+        error:
+          'GitHub publish (athlete ID + PAT) is required on this deployment — there is no local disk to save schedules to.',
+      };
+    }
 
     // Window: caller can override via form field, otherwise use default setting
     const overrideRaw = formData.get('window')?.toString();
@@ -283,22 +319,30 @@ export async function generateClubShare(formData: FormData): Promise<GenerateSha
     const payload = generateSchedulePayload(input);
     const json = JSON.stringify(payload, null, 2);
 
-    // Write to disk - latest + history (belt-and-suspenders: always kept)
-    const exportDir = shareExportRoot();
-    const historyDir = join(exportDir, 'history');
-    await mkdir(historyDir, { recursive: true });
-
-    const latestPath = join(exportDir, 'schedule-current.json');
-    const filename = buildShareFilename(parkrunId, weeks[0].weekStartIso);
-    const archivedPath = join(historyDir, filename);
-
-    await writeFile(latestPath, json, 'utf8');
-    await writeFile(archivedPath, json, 'utf8');
+    // Node: write to disk - latest + history (belt-and-suspenders: always
+    // kept). Workerd: no disk archive — GitHub publish (below) is the only
+    // persistence path there, and it's already confirmed configured by the
+    // pre-flight check above.
+    let latestPath: string | undefined;
+    let archivedPath: string | undefined;
+    let filename: string;
+    if (isWorkerd()) {
+      filename = buildShareFilename(parkrunId, weeks[0].weekStartIso);
+    } else {
+      const archive = await writeClubShareArchive(parkrunId, weeks[0].weekStartIso, json);
+      latestPath = archive.latestPath;
+      archivedPath = archive.archivedPath;
+      filename = archive.filename;
+    }
 
     // Update the last-generated setting
     await setClubLastShareGeneratedAt(generatedAt.toISOString());
 
-    // Optional: publish to GitHub if athleteId + PAT are configured
+    // Publish to GitHub if athleteId + PAT are configured. Optional on
+    // node (local disk archive above already persisted the schedule);
+    // required on workerd (pre-flight already guaranteed both are set —
+    // if the publish call itself fails there, the action reports failure
+    // since nothing else was persisted).
     let githubPublished = false;
     let githubUrl: string | undefined;
     if (athleteId && githubPat) {
@@ -309,6 +353,10 @@ export async function generateClubShare(formData: FormData): Promise<GenerateSha
       });
       githubPublished = ghResult.ok;
       githubUrl = ghResult.url;
+
+      if (isWorkerd() && !ghResult.ok) {
+        return { ok: false, error: ghResult.error ?? 'GitHub publish failed' };
+      }
     }
 
     revalidatePath('/settings');

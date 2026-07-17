@@ -2,44 +2,49 @@
 
 import { useState } from 'react';
 import { Download, CheckCircle2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { exportData } from '@/lib/actions/settings-admin';
 
 /**
- * Export data button — calls exportData() server action which writes a
- * timestamped JSON dump under <dataDir>/exports/. On success, shows the
- * path and offers a "Reveal in Explorer" follow-up.
+ * Export data button — downloads a JSON dump of every table via
+ * GET /api/settings/export (cloud-3: previously called a server action
+ * that wrote the dump to <dataDir>/exports/ and showed the path for the
+ * user to copy; now a plain browser download, which works identically on
+ * node and workerd since there's no disk write on either path).
  */
 export function ExportDataButton() {
   const [state, setState] = useState<
     | { kind: 'idle' }
     | { kind: 'pending' }
-    | { kind: 'done'; path: string; sizeKb: number }
+    | { kind: 'done'; filename: string }
     | { kind: 'error'; msg: string }
   >({ kind: 'idle' });
 
   const trigger = async () => {
     setState({ kind: 'pending' });
     try {
-      const result = await exportData();
-      setState({ kind: 'done', path: result.path, sizeKb: result.sizeKb });
+      const res = await fetch('/api/settings/export');
+      if (!res.ok) {
+        throw new Error(`Export failed (${res.status})`);
+      }
+      const disposition = res.headers.get('Content-Disposition') ?? '';
+      const match = disposition.match(/filename="([^"]+)"/);
+      const filename = match?.[1] ?? 'shadow-tracker-export.json';
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      setState({ kind: 'done', filename });
     } catch (err) {
       setState({
         kind: 'error',
         msg: err instanceof Error ? err.message : 'Export failed',
       });
-    }
-  };
-
-  const reveal = async () => {
-    if (state.kind !== 'done') return;
-    // Use the same reveal-log endpoint pattern by passing the path —
-    // but reveal-log is hardcoded to the log file. For now, just copy
-    // to clipboard. (Future: generic /api/files/reveal endpoint.)
-    try {
-      await navigator.clipboard.writeText(state.path);
-    } catch {
-      /* ignore */
     }
   };
 
@@ -86,27 +91,15 @@ export function ExportDataButton() {
     <div className="space-y-2">
       <div className="flex items-center gap-2 font-mono text-sm text-signal-ok">
         <CheckCircle2 size={14} strokeWidth={1.5} />
-        exported {state.sizeKb} KB
+        downloaded {state.filename}
       </div>
-      <div className="font-mono text-xs text-bone-dim break-all leading-relaxed">
-        {state.path}
-      </div>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={reveal}
-          className="font-display tracking-wide-display uppercase text-xs px-2 py-1 border border-bone-dim text-bone-dim hover:bg-bone hover:text-ink hover:border-bone transition-colors"
-        >
-          Copy path
-        </button>
-        <button
-          type="button"
-          onClick={() => setState({ kind: 'idle' })}
-          className="font-display tracking-wide-display uppercase text-xs text-bone-mute hover:text-bone transition-colors"
-        >
-          Done
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={() => setState({ kind: 'idle' })}
+        className="font-display tracking-wide-display uppercase text-xs text-bone-mute hover:text-bone transition-colors"
+      >
+        Done
+      </button>
     </div>
   );
 }

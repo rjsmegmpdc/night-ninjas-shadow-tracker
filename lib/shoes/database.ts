@@ -1,17 +1,17 @@
 import 'server-only';
-import fs from 'node:fs';
-import path from 'node:path';
+import { SHOES_DATABASE } from './shoes-database-data';
 
 /**
  * Shoe database lookup.
  *
- * Reads `data/shoes-database.csv` once at startup and matches a Strava
- * gear name against brand+model entries. Returns the matched entry or
- * null if nothing fits.
+ * Matches a Strava gear name against brand+model entries drawn from a
+ * build-time literal (see `shoes-database-data.ts`, generated from
+ * `data/shoes-database.csv`). User overrides are applied at the database
+ * row level via `user_target_km`, not by editing the seed data.
  *
- * The CSV is bundled with the app (read-only). User overrides are
- * applied at the database row level via `user_target_km`, not by editing
- * the CSV.
+ * cloud-3: this used to `fs.readFileSync` the CSV at first call — moved to
+ * a build-time import so the module has no runtime filesystem dependency
+ * and works identically on the node and workerd (Cloudflare) paths.
  *
  * Matching is best-effort string matching:
  *   1. Try exact "Brand Model" against gear name
@@ -29,63 +29,8 @@ export interface ShoeMatch {
   notes?: string;
 }
 
-let CACHE: ShoeMatch[] | null = null;
-
 function loadDatabase(): ShoeMatch[] {
-  if (CACHE) return CACHE;
-
-  // Resolve to project root + data/shoes-database.csv
-  // process.cwd() is the project root when next runs
-  const csvPath = path.join(process.cwd(), 'data', 'shoes-database.csv');
-  if (!fs.existsSync(csvPath)) {
-    // Defensive: if CSV missing, return empty array (everything defaults to 800 km)
-    CACHE = [];
-    return CACHE;
-  }
-
-  const text = fs.readFileSync(csvPath, 'utf8');
-  const lines = text.split('\n').slice(1).filter((l) => l.trim().length > 0);
-  const out: ShoeMatch[] = [];
-
-  for (const line of lines) {
-    const cols = parseCsvLine(line);
-    if (cols.length < 5) continue;
-    const [brand, model, recommendedKmStr, category, carbonPlateStr, ...rest] = cols;
-    const recommendedKm = parseFloat(recommendedKmStr);
-    if (!isFinite(recommendedKm)) continue;
-
-    out.push({
-      brand: brand.trim(),
-      model: model.trim(),
-      recommendedKm,
-      category: (category.trim() as ShoeMatch['category']) ?? 'daily',
-      carbonPlate: carbonPlateStr.trim() === '1',
-      notes: rest.join(',').trim() || undefined,
-    });
-  }
-
-  CACHE = out;
-  return CACHE;
-}
-
-/** Simple CSV parser handling quoted fields. */
-function parseCsvLine(line: string): string[] {
-  const out: string[] = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (c === '"') {
-      inQuotes = !inQuotes;
-    } else if (c === ',' && !inQuotes) {
-      out.push(current);
-      current = '';
-    } else {
-      current += c;
-    }
-  }
-  out.push(current);
-  return out;
+  return SHOES_DATABASE;
 }
 
 /**

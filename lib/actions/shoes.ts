@@ -2,10 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { eq, and } from 'drizzle-orm';
-import fs from 'node:fs';
-import path from 'node:path';
 import { getDb, schema } from '@/lib/db';
-import { resolveDataDir } from '@/lib/db/data-dir';
+import { saveShoePhoto, deleteShoePhoto } from '@/lib/storage/shoe-photos';
 import { logEvent } from '@/lib/store/usage-log';
 import {
   createGearBackfillJob,
@@ -275,9 +273,6 @@ export async function uploadShoePhoto(formData: FormData) {
   const file = formData.get('photo') as File | null;
   if (!id || !file || file.size === 0) return;
 
-  const photosDir = path.join(resolveDataDir(), 'shoe-photos');
-  if (!fs.existsSync(photosDir)) fs.mkdirSync(photosDir, { recursive: true });
-
   // Determine extension from mime type
   const ext = (() => {
     if (file.type === 'image/jpeg') return 'jpg';
@@ -286,10 +281,9 @@ export async function uploadShoePhoto(formData: FormData) {
     return 'bin';
   })();
   const filename = `shoe-${id}-${Date.now()}.${ext}`;
-  const filePath = path.join(photosDir, filename);
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  fs.writeFileSync(filePath, buffer);
+  await saveShoePhoto(filename, buffer);
 
   // Update shoe row
   await (await getDb())
@@ -308,12 +302,7 @@ export async function removeShoePhoto(formData: FormData) {
   const shoe = await db.select().from(schema.shoes).where(eq(schema.shoes.id, id)).get();
   if (!shoe?.photoFilename) return;
 
-  const filePath = path.join(resolveDataDir(), 'shoe-photos', shoe.photoFilename);
-  try {
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  } catch {
-    /* ignore */
-  }
+  await deleteShoePhoto(shoe.photoFilename);
 
   await db
     .update(schema.shoes)

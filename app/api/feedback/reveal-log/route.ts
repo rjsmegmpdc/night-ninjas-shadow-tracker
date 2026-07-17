@@ -1,24 +1,39 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
-import path from 'node:path';
-import { getLogFilePath } from '@/lib/store/usage-log';
-import { logEvent } from '@/lib/store/usage-log';
-
-const execAsync = promisify(exec);
+import { isWorkerd } from '@/lib/runtime';
+import { getLogFilePath, logEvent } from '@/lib/store/usage-log';
 
 /**
  * POST /api/feedback/reveal-log
  *
- * Opens the OS file manager focused on the usage log file. So the user
- * can drag-and-drop it into a manually-composed feedback email.
+ * Node (desktop-style local run): opens the OS file manager focused on the
+ * usage log file, exactly as before, via platform-specific shell commands.
  *
- * Platform-specific shell commands:
- *   Windows: explorer /select,"<path>"
- *   macOS:   open -R "<path>"
- *   Linux:   xdg-open "<dir>"   (selects parent dir; no universal "select" command)
+ * Workerd (Cloudflare): "reveal in Explorer" is a desktop-only concept and
+ * there is no child_process on workerd anyway. The usage log itself is a
+ * no-op on workerd (see lib/store/usage-log.ts), so there is never a file
+ * to reveal there — respond with a clear 501 rather than trying (and
+ * failing) to shell out.
  */
 export async function POST() {
+  if (isWorkerd()) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'Reveal-in-Explorer is a desktop-only feature and the usage log is disabled on this deployment.',
+        path: null,
+      },
+      { status: 501 }
+    );
+  }
+
+  // Node path — unchanged from before.
+  const [{ exec }, { promisify }, { default: path }] = await Promise.all([
+    import('node:child_process'),
+    import('node:util'),
+    import('node:path'),
+  ]);
+  const execAsync = promisify(exec);
+
   const filePath = getLogFilePath();
   const dir = path.dirname(filePath);
 

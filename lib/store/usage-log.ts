@@ -2,8 +2,19 @@ import 'server-only';
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolveDataDir } from '@/lib/db/data-dir';
+import { isWorkerd } from '@/lib/runtime';
 
 /**
+ * cloud-3: on workerd (Cloudflare) this whole module is a no-op — decided
+ * against a D1 table for usage events (would collide with the schema work
+ * landing in parallel; a local-first diagnostic log has little value once
+ * the app isn't running on the user's own disk anyway). Every exported
+ * function below checks `isWorkerd()` first and returns a safe empty/no-op
+ * result before touching `fs`. `node:fs`/`node:path` stay statically
+ * imported (unlike lib/db/index.ts's dynamic-import split) because they're
+ * never reached at runtime on workerd — only guarded on the node path,
+ * which is unaffected. Node keeps the exact disk-log behaviour below.
+ *
  * Usage logger — append-only JSON Lines stream of app events.
  *
  * Captured events:
@@ -75,6 +86,7 @@ function rotateIfNeeded(): void {
  * Never throws — logging must not break the app.
  */
 export function logEvent(event: Omit<UsageEvent, 'ts'>): void {
+  if (isWorkerd()) return; // no-op on workerd — see module header
   try {
     rotateIfNeeded();
     const fullEvent: UsageEvent = {
@@ -90,6 +102,7 @@ export function logEvent(event: Omit<UsageEvent, 'ts'>): void {
 
 /** Read the entire current log as a string. Used to attach to feedback emails. */
 export function readLog(): string {
+  if (isWorkerd()) return ''; // no-op on workerd — see module header
   try {
     const filePath = logFilePath();
     if (!fs.existsSync(filePath)) return '';
@@ -99,8 +112,12 @@ export function readLog(): string {
   }
 }
 
-/** Get the absolute file path — used by the "Reveal in Explorer" action. */
+/**
+ * Get the absolute file path — used by the "Reveal in Explorer" action.
+ * Returns '' on workerd (no-op — there is no log file to reveal there).
+ */
 export function getLogFilePath(): string {
+  if (isWorkerd()) return '';
   return logFilePath();
 }
 
@@ -112,6 +129,9 @@ export function summariseLog(): {
   estimatedEvents: number;
   oldestEvent: string | null;
 } {
+  if (isWorkerd()) {
+    return { filePath: '', exists: false, sizeBytes: 0, estimatedEvents: 0, oldestEvent: null };
+  }
   const filePath = logFilePath();
   if (!fs.existsSync(filePath)) {
     return { filePath, exists: false, sizeBytes: 0, estimatedEvents: 0, oldestEvent: null };
