@@ -51,11 +51,37 @@ function isWorkerd(): boolean {
   return typeof navigator !== 'undefined' && navigator.userAgent === 'Cloudflare-Workers';
 }
 
+/**
+ * Indirect dynamic import for keytar, built from a source string via
+ * `new Function` rather than written as a literal `import('keytar')`.
+ *
+ * A literal specifier isn't safe here even behind `await import(...)`:
+ * OpenNext's Cloudflare build re-bundles the Next server output with
+ * esbuild, and esbuild statically resolves `import()` calls whose
+ * argument is a string literal — including ones built from a `const`
+ * (esbuild's constant folding can trace `const NAME = 'keytar'; import(NAME)`
+ * right back to the literal). Resolving 'keytar' pulls in its own
+ * `require('../build/Release/keytar.node')`, a native addon esbuild has
+ * no loader for and workerd can't execute regardless — a hard build
+ * failure, not just dead code.
+ *
+ * Wrapping the specifier inside a function compiled from a string is
+ * opaque to every bundler's static analyzer (esbuild, webpack, turbopack):
+ * the string 'keytar' only exists as a runtime argument, never as an
+ * AST-visible import target. This function is only ever called on the
+ * Node path (isWorkerd() gates every caller), so the runtime dynamic
+ * import always resolves against the real, installed keytar package.
+ */
+type KeytarModule = typeof import('keytar');
+const dynamicImport = new Function('specifier', 'return import(specifier)') as (
+  specifier: string
+) => Promise<{ default: KeytarModule }>;
+
 // Lazy-load keytar — it's a native module and we want to gracefully
 // handle environments where it isn't available. Never called on workerd.
-async function loadKeytar() {
+async function loadKeytar(): Promise<KeytarModule | null> {
   try {
-    return (await import('keytar')).default;
+    return (await dynamicImport('keytar')).default;
   } catch (err) {
     console.warn(
       '[shadow-tracker] keytar unavailable; secrets layer will refuse writes. ' +
