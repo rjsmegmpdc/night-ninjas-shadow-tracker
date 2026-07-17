@@ -3,8 +3,8 @@
 ## Current state
 
 **Version**: 0.2.0  
-**Branch**: feat/daily-loop (active build)  
-**Status**: Daily loop complete (Phases 9–11: ambient sync, manual results fallback, prompt queue, daily brief, connections panel). UI redesign shipped on feat/ui-redesign (all screens: sharpened tokens, verdict-first hero cards with evidence chips, ambient chip strip with clickable goal-race chip, StatTile grids, arc statement).
+**Branch**: feat/cloud (active build; stacked daily-loop → ui-redesign → cloud)  
+**Status**: Cloud port shipped (Phase 12): dual-runtime app deployed to Cloudflare Workers via OpenNext at velocity.onlinemyassistant.workers.dev, behind a Cloudflare Access email allowlist. Local mode unchanged. Daily loop (Phases 9–11) and UI redesign both live in the deployed build.
 
 ---
 
@@ -212,6 +212,28 @@ The VELOCITY app comprises the following pages, organized by navigation bucket:
 - UI twin of §5's adapter layer in PRD
 
 **Status**: Complete.
+
+---
+
+### Phase 12 — Cloudflare cloud port (dual-runtime)
+**What**: Full port to Cloudflare Workers (OpenNext) while keeping local dev byte-identical: SQLite→D1 dual-driver, keytar→encrypted D1 secrets, disk→R2/download-response storage, fire-and-forget sync→durable Cloudflare Workflow, deploy behind Cloudflare Access.
+
+**Key files**:
+- `lib/db/index.ts` — runtime-selected getDb(): better-sqlite3 (node) / drizzle-orm/d1 (workerd)
+- `lib/store/secrets.ts` + `lib/store/crypto.ts` — dual-runtime secrets: OS keychain (node) / AES-GCM in D1, key from `SECRETS_ENC_KEY` Worker secret (workerd)
+- `lib/storage/shoe-photos.ts` — photo storage adapter: disk (node) / R2 `PHOTOS` (workerd)
+- `workers/sync-workflow.ts` + `worker-entry.ts` — Strava sync as a Cloudflare Workflow (step per page, durable retries); custom worker entry exporting the OpenNext handler + workflow class
+- `lib/db/migrations/0011_athletes.sql`, `0012_secrets.sql` — athletes table + athleteId scoping (multi-user groundwork, single default athlete), encrypted-secrets table
+- `wrangler.jsonc`, `open-next.config.ts`, `.github/workflows/deploy.yml` — deploy config (keep `preview_urls: false`; CI gated behind `CLOUDFLARE_DEPLOY_ENABLED`)
+- `scripts/d1-export.mjs`, `scripts/d1-import.ps1` — one-time local→D1 data migration
+
+**Features**:
+- Same codebase, automatic runtime selection — local dev needs no Cloudflare anything
+- ~129 call sites converted to async db access; 437-test suite unchanged and green
+- Access gate created before first deploy; unauthenticated requests never reach app code
+- Multi-user groundwork: athleteId columns + Access-email→athlete mapping (PRD P0-1)
+
+**Status**: Deployed (behind Access, data imported). Open: CI arming (needs Cloudflare API token in GitHub secrets).
 
 ---
 

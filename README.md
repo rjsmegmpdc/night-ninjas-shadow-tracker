@@ -2,11 +2,11 @@
 
 Welcome to VELOCITY, the official training companion for the Night Ninjas running club.
 
-VELOCITY is a desktop app that tracks and analyzes your running training with precision. All your data stays on your machine—nothing is ever uploaded to the cloud.
+VELOCITY is a local-first app that tracks and analyzes your running training with precision. By default all your data stays on your machine. An optional private cloud deployment (Cloudflare Workers, gated behind Cloudflare Access) is available for access from anywhere — see [Cloud deployment](#cloud-deployment) below.
 
 ## What VELOCITY does
 
-VELOCITY pulls your training data from Strava and compares it against your chosen training plan (Hansons, Pfitzinger, Daniels, Lydiard, Higdon, Polarised, Ultra, Norwegian Singles, or Custom). It shows you what you were meant to do, what you actually did, and where the gaps are. No cloud, no subscription, no telemetry. Your data stays on your machine.
+VELOCITY pulls your training data from Strava and compares it against your chosen training plan (Hansons, Pfitzinger, Daniels, Lydiard, Higdon, Polarised, Ultra, Norwegian Singles, or Custom). It shows you what you were meant to do, what you actually did, and where the gaps are. No subscription, no telemetry. Local mode keeps every byte on your machine; cloud mode runs the same app on your own Cloudflare account behind an email allowlist.
 
 For development and brand identity, see [`BRAND.md`](./BRAND.md) and [`PHASES.md`](./PHASES.md).
 
@@ -188,17 +188,60 @@ When you change `lib/db/schema.ts`, also write a corresponding migration
 SQL file in `lib/db/migrations/NNNN_description.sql`. The checker applies
 these automatically on next run.
 
+> Note: `npm run db:generate` (drizzle-kit) is currently unreliable — migrations
+> 0001+ were hand-authored and never registered in drizzle-kit's journal, so a
+> generate run diffs against a stale baseline. Write migration SQL by hand in
+> the established `NNNN_description.sql` idiom instead.
+
+---
+
+## Cloud deployment
+
+The app is dual-runtime. The same codebase runs:
+
+- **Local (Node)** — better-sqlite3 database, Strava tokens in the OS keychain
+  (keytar), photos and logs on disk. Everything above in this README applies
+  unchanged; local dev needs no Cloudflare account or config.
+- **Cloud (Cloudflare Workers via OpenNext)** — D1 database (binding `DB`),
+  tokens AES-GCM-encrypted in D1 (key from the `SECRETS_ENC_KEY` Worker
+  secret), shoe photos in R2 (`PHOTOS`), Strava sync as a durable Cloudflare
+  Workflow (`SYNC_WORKFLOW`), page cache in R2. The deployment sits behind a
+  Cloudflare Access email allowlist — unauthenticated requests never reach app
+  code. Runtime selection is automatic (workerd detection); no build flags.
+
+Cloud commands (require a wrangler-authenticated Cloudflare account):
+
+```bash
+npx opennextjs-cloudflare build     # build the Worker bundle (.open-next/)
+npx wrangler deploy --dry-run       # validate config + bindings
+npx wrangler deploy                 # deploy
+npx wrangler d1 migrations apply velocity-db --remote   # apply schema migrations
+```
+
+The production build prerenders against a real database. To build without
+touching your live local data, point `NN_DATA_DIR` at a scratch directory
+containing a fully-migrated `shadow-tracker.db` (apply everything in
+`lib/db/migrations/` in order to a fresh file).
+
+Config lives in `wrangler.jsonc` (keep `preview_urls: false` — version preview
+URLs are separate hostnames NOT covered by the Access application) and
+`open-next.config.ts`. CI deploy is `.github/workflows/deploy.yml`, armed only
+when the `CLOUDFLARE_DEPLOY_ENABLED` repo variable is `true` and the
+`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets exist. One-time data
+migration from a local install is `scripts/d1-export.mjs` +
+`scripts/d1-import.ps1`.
+
 ---
 
 ## Privacy
 
 | Question | Answer |
 |---|---|
-| Does my data leave this machine? | No |
+| Does my data leave this machine? | Not in local mode. Cloud mode stores it in your own Cloudflare account (D1/R2), behind your Access allowlist |
 | Is there telemetry? | No. `NEXT_TELEMETRY_DISABLED=1` is set by default |
-| Where do my Strava tokens live? | OS keychain |
+| Where do my Strava tokens live? | Local: OS keychain. Cloud: AES-GCM-encrypted in D1, key held as a Worker secret |
 | What outbound network calls? | `strava.com` for OAuth + sync; one annual GitHub fetch for NZ public holidays |
-| Does it work offline? | Yes — except syncing new activities |
+| Does it work offline? | Local mode: yes — except syncing new activities |
 
 ---
 
