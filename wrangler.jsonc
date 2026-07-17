@@ -1,0 +1,79 @@
+{
+	// Cloudflare Workers config for VELOCITY, generated via @opennextjs/cloudflare.
+	// PLACEHOLDER IDs below (marked <PLACEHOLDER>) must be replaced with real
+	// resource IDs once `wrangler d1 create` / `r2 bucket create` /
+	// `wrangler kv namespace create` are run at deploy stage (cloud-5b).
+	// See docs: https://opennext.js.org/cloudflare
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"main": ".open-next/worker.js",
+	"name": "velocity",
+	// Bump this to the actual current date before the real deploy.
+	// 2024-09-23 is the minimum date needed for full nodejs_compat behaviour.
+	"compatibility_date": "2024-09-23",
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+
+	"services": [
+		{
+			// Self-reference service binding — required by OpenNext for the
+			// Cloudflare cache/ISR machinery (queue + tag revalidation).
+			// The service name must match "name" above.
+			// See https://opennext.js.org/cloudflare/caching
+			"binding": "WORKER_SELF_REFERENCE",
+			"service": "velocity"
+		}
+	],
+
+	// D1 — being wired up by the parallel Drizzle/D1 port. Binding name DB
+	// per mission spec. Real database_id gets filled in after
+	// `wrangler d1 create velocity-db` at deploy stage.
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "velocity-db",
+			"database_id": "<PLACEHOLDER_D1_DATABASE_ID>"
+		}
+	],
+
+	// R2 — photo storage. Real bucket gets created via
+	// `wrangler r2 bucket create velocity-photos` at deploy stage.
+	"r2_buckets": [
+		{
+			"binding": "PHOTOS",
+			"bucket_name": "velocity-photos"
+		},
+		{
+			// OpenNext incremental cache (ISR/data cache) — R2 chosen over KV
+			// because KV's free tier write limit (1,000 writes/day) is too
+			// tight for revalidation traffic; R2 free tier (10GB storage,
+			// 1M Class A + 10M Class B ops/month) comfortably covers a
+			// single-user app. See https://opennext.js.org/cloudflare/caching
+			"binding": "NEXT_INC_CACHE_R2_BUCKET",
+			"bucket_name": "velocity-opennext-cache"
+		}
+	],
+
+	// No "images" binding: grep of app/ and components/ found zero uses of
+	// next/image, so there's nothing to route through Cloudflare's image
+	// resizing. Add it back (see
+	// https://opennext.js.org/cloudflare/howtos/image) only if next/image
+	// gets adopted later — note the Images binding may require the paid
+	// Cloudflare Images product on some accounts; verify before enabling
+	// (flagged in the cloud-5a pricing findings).
+
+	// No KV namespace: the R2 incremental cache above covers OpenNext's
+	// cache needs. Add a kv_namespaces block only if a future OpenNext
+	// version requires KV for tag-cache metadata.
+
+	// No Durable Objects binding: this scaffold's open-next.config.ts only
+	// overrides incrementalCache (R2). tagCache and queue stay at
+	// @opennextjs/cloudflare's "dummy" (no-op) default, which needs no DO
+	// and no D1 tag-cache table. Trade-off: on-demand revalidateTag/Path
+	// won't propagate across instances — acceptable for a single-user app,
+	// but flagged here since it's a deliberate choice, not an oversight.
+	// See https://opennext.js.org/cloudflare/caching
+}
