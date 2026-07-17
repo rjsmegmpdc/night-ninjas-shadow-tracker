@@ -1,19 +1,31 @@
 import 'server-only';
+import { and, eq } from 'drizzle-orm';
+import { getDb, schema } from '@/lib/db';
+import { encryptValue, decryptValue } from './crypto';
 
 /* ----------------------------------------------------------------------------
- * Secrets layer — Strava client_secret, access_token, refresh_token.
+ * Secrets layer — Strava client_secret, access_token, refresh_token, Garmin
+ * session tokens, GitHub PAT.
  *
- * Storage: OS keychain via `keytar`.
+ * Dual-runtime (cloud-2): every exported function below keeps its original
+ * signature — only the internal setSecret/getSecret/deleteSecret dispatch
+ * on runtime.
+ *
+ * Node (local dev): OS keychain via `keytar`.
  *   Windows : Windows Credential Manager
  *   macOS   : Keychain
  *   Linux   : libsecret (gnome-keyring / kwallet)
+ * keytar is dynamically imported so its native .node addon never enters the
+ * workerd bundle (same pattern as better-sqlite3 in lib/db/index.ts).
  *
- * If keytar isn't available (rare — Linux without libsecret), we fall back
- * to an encrypted file in the data dir. The encryption key derives from a
- * machine-specific seed so the file isn't useful if copied off the machine.
+ * Workerd (Cloudflare): AES-GCM encrypted (WebCrypto, see lib/store/crypto.ts)
+ * values in the `secrets` D1 table, scoped to the default athlete
+ * (schema.DEFAULT_ATHLETE_ID — real per-athlete resolution lands with auth).
+ * Encryption key comes from the SECRETS_ENC_KEY Worker secret.
  *
  * Secrets are NEVER persisted to:
- *   - the SQLite database
+ *   - the SQLite database (Node path)
+ *   - plaintext, anywhere (Workerd path)
  *   - logs
  *   - the .env file
  *   - any sync/backup-friendly path
@@ -30,8 +42,17 @@ const KEY = {
   GITHUB_PAT: 'github-pat',
 } as const;
 
+/**
+ * True when executing inside a Cloudflare Workers (workerd) runtime — same
+ * signal as lib/db/index.ts's isWorkerd(), duplicated here (not imported)
+ * to keep lib/store and lib/db decoupled.
+ */
+function isWorkerd(): boolean {
+  return typeof navigator !== 'undefined' && navigator.userAgent === 'Cloudflare-Workers';
+}
+
 // Lazy-load keytar — it's a native module and we want to gracefully
-// handle environments where it isn't available.
+// handle environments where it isn't available. Never called on workerd.
 async function loadKeytar() {
   try {
     return (await import('keytar')).default;
@@ -44,7 +65,55 @@ async function loadKeytar() {
   }
 }
 
+async function getEncKey(): Promise<string> {
+  const { getCloudflareContext } = await import('@opennextjs/cloudflare');
+  const { env } = getCloudflareContext();
+  const key = env.SECRETS_ENC_KEY;
+  if (!key) {
+    throw new Error(
+      'SECRETS_ENC_KEY Worker secret is not set — run `wrangler secret put SECRETS_ENC_KEY`.'
+    );
+  }
+  return key;
+}
+
+async function setSecretD1(key: string, value: string): Promise<void> {
+  const encKey = await getEncKey();
+  const { iv, ciphertext } = await encryptValue(value, encKey);
+  const db = await getDb();
+  await db
+    .insert(schema.secrets)
+    .values({ athleteId: schema.DEFAULT_ATHLETE_ID, key, iv, ciphertext })
+    .onConflictDoUpdate({
+      target: [schema.secrets.athleteId, schema.secrets.key],
+      set: { iv, ciphertext, updatedAt: new Date() },
+    });
+}
+
+async function getSecretD1(key: string): Promise<string | null> {
+  const db = await getDb();
+  const row = await db
+    .select()
+    .from(schema.secrets)
+    .where(and(eq(schema.secrets.athleteId, schema.DEFAULT_ATHLETE_ID), eq(schema.secrets.key, key)))
+    .get();
+  if (!row) return null;
+  const encKey = await getEncKey();
+  return decryptValue({ iv: row.iv, ciphertext: row.ciphertext }, encKey);
+}
+
+async function deleteSecretD1(key: string): Promise<void> {
+  const db = await getDb();
+  await db
+    .delete(schema.secrets)
+    .where(and(eq(schema.secrets.athleteId, schema.DEFAULT_ATHLETE_ID), eq(schema.secrets.key, key)));
+}
+
 async function setSecret(key: string, value: string): Promise<void> {
+  if (isWorkerd()) {
+    await setSecretD1(key, value);
+    return;
+  }
   const keytar = await loadKeytar();
   if (!keytar) {
     throw new Error(
@@ -55,12 +124,17 @@ async function setSecret(key: string, value: string): Promise<void> {
 }
 
 async function getSecret(key: string): Promise<string | null> {
+  if (isWorkerd()) return getSecretD1(key);
   const keytar = await loadKeytar();
   if (!keytar) return null;
   return keytar.getPassword(SERVICE, key);
 }
 
 async function deleteSecret(key: string): Promise<void> {
+  if (isWorkerd()) {
+    await deleteSecretD1(key);
+    return;
+  }
   const keytar = await loadKeytar();
   if (!keytar) return;
   await keytar.deletePassword(SERVICE, key);

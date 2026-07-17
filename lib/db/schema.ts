@@ -734,3 +734,35 @@ export const raceResults = sqliteTable(
 
 export type RaceResultRow = typeof raceResults.$inferSelect;
 export type NewRaceResultRow = typeof raceResults.$inferInsert;
+
+/* ----------------------------------------------------------------------------
+ * Secrets (cloud-2) — the workerd side of the dual-runtime secrets adapter.
+ *
+ * Node keeps using the OS keychain (keytar) — this table is never touched
+ * on that path. On Cloudflare, lib/store/secrets.ts encrypts each value
+ * with AES-GCM (WebCrypto, key from the SECRETS_ENC_KEY Worker secret)
+ * before it lands here; `iv` + `ciphertext` are base64. Never store a
+ * plaintext secret in this table.
+ *
+ * One row per (athlete, key) — key is the same logical name secrets.ts
+ * already uses on the keytar path (e.g. 'strava-access-token').
+ * -------------------------------------------------------------------------- */
+export const secrets = sqliteTable(
+  'secrets',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    athleteId: integer('athlete_id').notNull().default(1).references(() => athletes.id),
+    key: text('key').notNull(),
+    /** base64-encoded 12-byte AES-GCM nonce. */
+    iv: text('iv').notNull(),
+    /** base64-encoded ciphertext (WebCrypto AES-GCM output includes the auth tag). */
+    ciphertext: text('ciphertext').notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`(unixepoch())`).notNull(),
+  },
+  (t) => ({
+    athleteKeyIdx: uniqueIndex('secrets_athlete_key_idx').on(t.athleteId, t.key),
+  })
+);
+
+export type SecretRow = typeof secrets.$inferSelect;
+export type NewSecretRow = typeof secrets.$inferInsert;
