@@ -4,7 +4,7 @@
 
 **Version**: 0.2.0  
 **Branch**: feat/cloud (active build; stacked daily-loop → ui-redesign → cloud)  
-**Status**: Cloud port shipped (Phase 12): dual-runtime app deployed to Cloudflare Workers via OpenNext at velocity.onlinemyassistant.workers.dev, behind a Cloudflare Access email allowlist. Local mode unchanged. Daily loop (Phases 9–11) and UI redesign both live in the deployed build. Patrol-only "Kiero" visual pass shipped on feat/ui-kiero (kiero-1): ring-gauge trio (FORM/LOAD/COMPLIANCE), Kiero-mode verdict cards, status-pill session list, stat-tile colour dots, mobile bottom nav, additive `k-*` design tokens. Every other route is unchanged — `--nn-accent` was not touched.
+**Status**: Cloud port shipped (Phase 12): dual-runtime app deployed to Cloudflare Workers via OpenNext at velocity.onlinemyassistant.workers.dev, behind a Cloudflare Access email allowlist. Local mode unchanged. Daily loop (Phases 9–11) and UI redesign both live in the deployed build. Patrol-only "Kiero" visual pass shipped on feat/ui-kiero: kiero-1 (ring-gauge trio, Kiero-mode verdict cards, status-pill session list, stat-tile colour dots, mobile bottom nav, additive `k-*` tokens) and kiero-2 (real shadcn/ui primitives — Button/Card/Badge/Separator — under components/shadcn/*, themed via additive `sh-*` tokens mapped to the Kiero palette; components.json added). Every other route is unchanged — `--nn-accent`, `components/ui/button.tsx`, and `components/ui/card.tsx` were not touched.
 
 ---
 
