@@ -1,4 +1,5 @@
 import { TopNav } from '@/components/nav/topnav';
+import { BottomNav } from '@/components/nav/bottom-nav';
 import { getStreakState } from '@/lib/analysis/streak';
 
 /**
@@ -11,6 +12,10 @@ import { getStreakState } from '@/lib/analysis/streak';
  *
  * Fetches the live streak here (server) and passes the count into the
  * client TopNav so the nav flame shows the real number.
+ *
+ * kiero-1: BottomNav is additive, mobile-only (its own `sm:hidden`) - TopNav
+ * is untouched and keeps rendering on every breakpoint. `pb-20 sm:pb-0` on
+ * `<main>` keeps page content clear of the fixed bottom bar on small screens.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   let streakCount: number | null = null;
@@ -24,7 +29,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen bg-ink">
       <TopNav streakCount={streakCount} />
-      <main className="min-w-0">{children}</main>
+      <main className="min-w-0 pb-20 sm:pb-0">{children}</main>
+      <BottomNav />
     </div>
   );
 }

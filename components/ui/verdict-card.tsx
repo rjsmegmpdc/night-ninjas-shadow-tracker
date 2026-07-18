@@ -24,6 +24,14 @@ import { cn } from '@/lib/utils';
  * matching the approved mockup exactly (patrol.html §4) — a non-hero
  * instance renders as an ordinary base card with no tone colouring at all,
  * so tone stops doubling as a generic "this is important" signal.
+ *
+ * `kiero` (kiero-1, additive, default false): opts into the Kiero visual
+ * language — larger radius, icon in a tinted chip, sans-serif headline
+ * (Kiero doesn't use VELOCITY's condensed display font for verdict prose),
+ * a compact single-line "why" instead of a chip row, and a left-aligned
+ * decision row. Only Patrol's CoachReadCard/CoachAdjustmentCard pass this;
+ * every other caller (components/club-share/club-page.tsx) omits it and
+ * renders exactly as before — this prop changes nothing when unset.
  */
 
 export type VerdictTone = 'accent' | 'ok' | 'warn' | 'miss';
@@ -59,6 +67,8 @@ export interface VerdictCardProps {
   decisionRow?: React.ReactNode;
   /** Hero-card treatment (spec §1.4). Default false — caller decides which single card on the screen earns it. */
   elevated?: boolean;
+  /** Kiero visual language opt-in (kiero-1). Default false — see file doc. */
+  kiero?: boolean;
   className?: string;
 }
 
@@ -73,48 +83,73 @@ export function VerdictCard({
   children,
   decisionRow,
   elevated = false,
+  kiero = false,
   className,
 }: VerdictCardProps) {
   return (
     <div
       className={cn(
         elevated ? cn('nn-card-elevated border-t-2', TONE_BORDER_TOP[tone]) : 'nn-card',
-        'p-6 space-y-4',
+        kiero ? 'rounded-[22px] p-7 space-y-5' : 'p-6 space-y-4',
         className
       )}
     >
       <div className="flex items-start gap-3">
-        {icon && <span className={cn('shrink-0 mt-0.5', TONE_TEXT[tone])}>{icon}</span>}
+        {icon && (
+          kiero ? (
+            <span className={cn('shrink-0 rounded-lg p-2 bg-k-accent/15 text-k-accent')}>{icon}</span>
+          ) : (
+            <span className={cn('shrink-0 mt-0.5', TONE_TEXT[tone])}>{icon}</span>
+          )
+        )}
         <div className="flex-1 min-w-0 space-y-1.5">
           <div className="flex items-baseline justify-between gap-3">
             <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-bone-mute">{eyebrow}</span>
             {shift && <span className="font-mono text-xs text-bone-dim whitespace-nowrap shrink-0">{shift}</span>}
           </div>
-          <div className="font-display text-[27px] leading-[1.3] tracking-[0.01em] text-bone">{headline}</div>
+          <div
+            className={
+              kiero
+                ? 'font-sans font-semibold text-xl leading-[1.4] text-bone'
+                : 'font-display text-[27px] leading-[1.3] tracking-[0.01em] text-bone'
+            }
+          >
+            {headline}
+          </div>
         </div>
       </div>
 
       {detail && <p className="text-bone-dim text-base leading-[1.7]">{detail}</p>}
 
       {whyChips && whyChips.length > 0 && (
-        <div className="border-t border-ink-line pt-3.5 space-y-2.5">
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-mute">why</span>
-          <div className="flex flex-wrap gap-2">
-            {whyChips.map((chip, i) => (
-              <span
-                key={i}
-                className="font-mono text-[11px] text-bone-dim border border-ink-line rounded-md px-2.5 py-1.5 bg-ink-shadow"
-              >
-                {chip}
-              </span>
-            ))}
+        kiero ? (
+          <div className="border-t border-ink-line pt-3.5">
+            <p className="font-mono text-[11px] text-bone-mute leading-relaxed">
+              <span className="uppercase tracking-[0.14em]">why:</span> {whyChips.join(' · ')}
+            </p>
           </div>
-        </div>
+        ) : (
+          <div className="border-t border-ink-line pt-3.5 space-y-2.5">
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-bone-mute">why</span>
+            <div className="flex flex-wrap gap-2">
+              {whyChips.map((chip, i) => (
+                <span
+                  key={i}
+                  className="font-mono text-[11px] text-bone-dim border border-ink-line rounded-md px-2.5 py-1.5 bg-ink-shadow"
+                >
+                  {chip}
+                </span>
+              ))}
+            </div>
+          </div>
+        )
       )}
 
       {children}
 
-      {decisionRow && <div className="flex items-center justify-end gap-2.5">{decisionRow}</div>}
+      {decisionRow && (
+        <div className={cn('flex items-center gap-2.5', kiero ? 'justify-start' : 'justify-end')}>{decisionRow}</div>
+      )}
     </div>
   );
 }

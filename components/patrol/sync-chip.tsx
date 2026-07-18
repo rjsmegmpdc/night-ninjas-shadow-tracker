@@ -180,7 +180,7 @@ export function SyncChip() {
         </Chip>
         <HoverCard>
           <div className="space-y-1">
-            <div className="font-display tracking-wide-display uppercase text-[10px] text-accent">syncing</div>
+            <div className="font-display tracking-wide-display uppercase text-[10px] text-k-accent">syncing</div>
             <div>
               {(job!.added + job!.updated)} synced so far · {job!.pagesFetched} pages · {jobLabel(job!.jobType)}
             </div>
@@ -207,7 +207,7 @@ export function SyncChip() {
               {job!.oldestFetched ? ` · oldest ${job!.oldestFetched}` : ''}
             </div>
             <div className="flex items-center gap-3 pt-1 border-t border-ink-line pointer-events-auto">
-              <button type="button" disabled={isPending} onClick={handleResume} className="text-accent hover:underline">
+              <button type="button" disabled={isPending} onClick={handleResume} className="text-k-accent hover:underline">
                 Resume
               </button>
               <button type="button" disabled={isPending} onClick={handleCancel} className="text-bone-mute hover:text-signal-miss">
@@ -237,7 +237,7 @@ export function SyncChip() {
               Resumes at {resumesAt} · {job!.added + job!.updated} synced so far
             </div>
             <div className="pt-1 border-t border-ink-line pointer-events-auto">
-              <button type="button" disabled={isPending} onClick={handleResume} className="text-accent hover:underline">
+              <button type="button" disabled={isPending} onClick={handleResume} className="text-k-accent hover:underline">
                 Try resume
               </button>
             </div>
@@ -251,7 +251,7 @@ export function SyncChip() {
     return (
       <HoverCardTrigger>
         <button type="button" onClick={handleManualSync} disabled={isPending} className="contents">
-          <Chip tone="miss" className="cursor-pointer hover:border-accent transition-colors">
+          <Chip tone="miss" className="cursor-pointer hover:border-k-accent transition-colors">
             <AlertTriangle size={11} strokeWidth={1.5} />
             SYNC ERROR
           </Chip>
@@ -277,7 +277,7 @@ export function SyncChip() {
   return (
     <HoverCardTrigger>
       <button type="button" onClick={handleManualSync} disabled={isPending} className="contents">
-        <Chip tone={tone} className="cursor-pointer hover:border-accent transition-colors">
+        <Chip tone={tone} className="cursor-pointer hover:border-k-accent transition-colors">
           <RefreshCw size={11} strokeWidth={1.5} />
           {label}
         </Chip>

@@ -40,10 +40,11 @@ export async function CoachReadCard({ elevated = true }: { elevated?: boolean } 
       detail={read.detail}
       whyChips={read.evidence.length > 0 ? read.evidence : undefined}
       elevated={elevated}
+      kiero
     >
       <div className="pt-1 space-y-1">
         <div className="font-mono text-[10px] uppercase tracking-widest text-bone-mute">next</div>
-        <div className="font-mono text-sm text-accent leading-relaxed">{read.pointer}</div>
+        <div className="font-mono text-sm text-k-accent leading-relaxed">{read.pointer}</div>
       </div>
     </VerdictCard>
   );

@@ -3,7 +3,6 @@ import { eq } from 'drizzle-orm';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Card, CardLabel } from '@/components/ui/card';
 import { StatTile } from '@/components/ui/stat-tile';
-import { Check, AlertCircle, Minus, Minimize2 } from 'lucide-react';
 import { SyncStatusBanner } from '@/components/sync/sync-status-banner';
 import { PromptQueue } from '@/components/patrol/prompt-queue';
 import { AmbientStrip } from '@/components/patrol/ambient-strip';
@@ -39,7 +38,8 @@ import { getProgramPhase } from '@/lib/plans/program-phase';
 import { getRampPlanForActivePeriod } from '@/lib/plans/ramp-loader';
 import { RampCard } from '@/components/patrol/ramp-card';
 import { CoachAdjustmentCard } from '@/components/patrol/coach-adjustment-card';
-import { resolveCoachAdjustment } from '@/lib/plans/state-aware-week';
+import { resolveCoachAdjustment, getAcwrNow } from '@/lib/plans/state-aware-week';
+import { RingTrio } from '@/components/patrol/ring-trio';
 import { NsGuardrailsCard } from '@/components/patrol/ns-guardrails-card';
 import { getNsGuardReport } from '@/lib/analysis/ns-guardrails-read';
 import { getInterruptionsView } from '@/lib/analysis/interruptions';
@@ -81,7 +81,7 @@ export default async function PatrolPage() {
             action={{ href: '/setup/sync', label: 'Run initial sync' }}
           />
           <p className="font-mono text-xs text-bone-mute max-w-2xl">
-            ↳ new to the app? <a href="/help" className="text-bone-dim hover:text-accent transition-colors underline">Read the help</a> for a 2-minute orientation
+            ↳ new to the app? <a href="/help" className="text-bone-dim hover:text-k-accent transition-colors underline">Read the help</a> for a 2-minute orientation
           </p>
         </>
       )}
@@ -166,7 +166,7 @@ async function PatrolDashboard() {
 
   // Phase 2 athlete state surfaces + Phase 3a phase + ramp.
   // All run in parallel.
-  const [athleteState, intensityDist, mileageProg, longRunCheck, programPhase, interruptions, promptItems, timezone, arcStatement] =
+  const [athleteState, intensityDist, mileageProg, longRunCheck, programPhase, interruptions, promptItems, timezone, arcStatement, acwr] =
     await Promise.all([
       getAthleteState({}),
       getIntensityDistribution(startIso, endIso, {}),
@@ -177,6 +177,10 @@ async function PatrolDashboard() {
       getPromptQueue(),
       getUserTimezone(),
       getArcStatement(),
+      // kiero-1: same acute:chronic ratio the state-aware pipeline already
+      // computed above (via resolveCoachAdjustment -> getAcwrNow) - cheap
+      // re-query, feeds the ring trio's LOAD ring.
+      getAcwrNow(),
     ]);
   const todayLocalIso = formatInTimeZone(new Date(), timezone, 'yyyy-MM-dd');
   // Ramp depends on programPhase, so it sequences after - but only triggers
@@ -199,6 +203,27 @@ async function PatrolDashboard() {
   const longPct = template.longRunKmTarget > 0
     ? Math.round((stats.longRunKm / template.longRunKmTarget) * 100)
     : 0;
+
+  // kiero-1: weekly compliance % for the ring trio's COMPLIANCE ring - same
+  // "scheduled so far, hit" calc WeekComplianceChip already does inline
+  // (components/patrol/week-compliance-chip.tsx), over the same `compliance`
+  // this page already computed above. Null when nothing's due yet.
+  const compliancePct = ((): number | null => {
+    let scheduled = 0;
+    let hits = 0;
+    for (const day of compliance.days) {
+      if (day.dow > todayDow) continue;
+      if (day.sessions.length === 0) continue;
+      let worst: 'hit' | 'soft' | 'miss' = 'hit';
+      for (const s of day.sessions) {
+        if (s.flag === 'miss' || s.flag === 'none') { worst = 'miss'; break; }
+        if (s.flag !== 'ok' && worst === 'hit') worst = 'soft';
+      }
+      scheduled++;
+      if (worst === 'hit') hits++;
+    }
+    return scheduled === 0 ? null : Math.round((hits / scheduled) * 100);
+  })();
 
   // Redesign spec §1.4/§3.1.6: only one hero card per load. CoachReadCard is
   // the hero by default; an active safety rail on CoachAdjustmentCard takes
@@ -238,6 +263,11 @@ async function PatrolDashboard() {
           <div className="font-mono text-xs text-bone-mute italic pt-1">&ldquo;{arcStatement}&rdquo;</div>
         )}
       </header>
+
+      {/* kiero-1 - ring trio (FORM/LOAD/COMPLIANCE), directly under the
+          header, matching the reference's chips-row -> rings -> coach's-call
+          order. Silent when there's no athlete state yet. */}
+      <RingTrio athleteState={athleteState} acwr={acwr} compliancePct={compliancePct} />
 
       {/* Full weekly calendar-adaptation list (all kinds, incl. group-run/
           ninja-loop) - the next-session card only surfaces the "life event"
@@ -293,7 +323,11 @@ async function PatrolDashboard() {
 
       {/* Week stat tiles — StatTile grid (spec §2.2), same hairline pattern
           as before, each with a deterministic interpretation word derived
-          from numbers already on the page. */}
+          from numbers already on the page. kiero-1: colour-dot key added
+          (bg-k-data-*) matching the reference's per-metric colour coding;
+          sparklines omitted — no historical series is threaded into Patrol
+          for these four values, and kiero-1 doesn't touch lib/** to add
+          one. */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-ink-line border border-ink-line">
         <StatTile
           label="this week"
@@ -302,6 +336,7 @@ async function PatrolDashboard() {
           target={`target ${template.totalKmTarget} · ${volumePct}%`}
           word={volume.word}
           tone={volume.tone}
+          dotClassName="bg-k-data-teal"
         />
         <StatTile
           label="long run"
@@ -310,6 +345,7 @@ async function PatrolDashboard() {
           target={`target ${template.longRunKmTarget} · ${longPct}%`}
           word={longRun.word}
           tone={longRun.tone}
+          dotClassName="bg-k-data-purple"
         />
         <StatTile
           label="avg pace"
@@ -318,6 +354,7 @@ async function PatrolDashboard() {
           target={`${stats.totalSessions} session${stats.totalSessions === 1 ? '' : 's'} this week`}
           word={pace.word}
           tone={pace.tone}
+          dotClassName="bg-k-data-pink"
         />
         <StatTile
           label="avg HR"
@@ -326,6 +363,7 @@ async function PatrolDashboard() {
           target={stats.avgHr ? 'weighted by time' : 'no HR data'}
           word={hr.word}
           tone={hr.tone}
+          dotClassName="bg-k-data-green"
         />
       </div>
 
@@ -343,8 +381,8 @@ async function PatrolDashboard() {
 
       {/* Two-column body */}
       <div className="grid lg:grid-cols-[3fr_2fr] gap-8">
-        {/* Sessions */}
-        <Card className="space-y-5">
+        {/* Sessions — kiero-1: rounded-[22px] shell + status-pill rows (see ComplianceRow) */}
+        <Card className="space-y-5 rounded-[22px]">
           <div className="flex items-center justify-between">
             <CardLabel>session compliance</CardLabel>
             <span className="font-mono text-xs text-bone-mute">
@@ -388,7 +426,7 @@ async function PatrolDashboard() {
                 : '↳ no active interruptions. Log an injury, illness, or travel break on the Journal page so the plan and risk read stay honest.'}
             </div>
             <Link href="/journal">
-              <span className="font-mono text-xs text-bone-dim hover:text-accent transition-colors">
+              <span className="font-mono text-xs text-bone-dim hover:text-k-accent transition-colors">
                 Open Journal →
               </span>
             </Link>
@@ -415,13 +453,13 @@ function formatRange(startIso: string, endIso: string): string {
 function adaptationStyle(kind: string): string {
   switch (kind) {
     case 'taper':
-      return 'border-accent/60 text-accent bg-accent/5';
+      return 'border-k-accent/60 text-k-accent bg-k-accent/5';
     case 'no-training':
     case 'reduced':
     case 'travel-only':
       return 'border-signal-warn/60 text-signal-warn bg-signal-warn/5';
     case 'tuneup-race':
-      return 'border-accent/60 text-accent bg-accent/5';
+      return 'border-k-accent/60 text-k-accent bg-k-accent/5';
     case 'group-run':
       return 'border-bone-dim/60 text-bone bg-ink-shadow';
     case 'ninja-loop':
@@ -445,34 +483,31 @@ function ComplianceRow({
   /** The pre-adjustment prescription for this slot, when it lines up 1:1 with the adjusted one — renders a swap cell when it differs. */
   rawSession?: SessionTarget;
 }) {
-  const FlagIcon = {
-    ok: Check,
-    warn: AlertCircle,
-    fast: AlertCircle,
-    slow: AlertCircle,
-    short: Minimize2,
-    miss: AlertCircle,
-    none: Minus,
-  }[sess.flag];
-
-  const flagColor = {
-    ok: 'text-signal-ok',
-    warn: 'text-signal-warn',
-    fast: 'text-signal-warn',
-    slow: 'text-signal-warn',
-    short: 'text-accent',
-    miss: 'text-accent',
-    none: 'text-bone-mute',
-  }[sess.flag];
+  // kiero-1: status pill replacing the bare flag icon - same flag data,
+  // Kiero's "DONE"/"COVERS RUN"-style badge look (reference screenshot 1,
+  // this-week list). short/miss keep the same moderate (non-alarm) weight
+  // they already had as the shared `accent` colour before - now k-accent
+  // (teal) since orange retires as Patrol's accent - rather than escalating
+  // to signal-miss red, which would change what the colour means.
+  const STATUS_PILL: Record<SessionCompliance['flag'], { label: string; className: string }> = {
+    ok: { label: 'done', className: 'border-signal-ok/50 bg-signal-ok/10 text-signal-ok' },
+    warn: { label: 'soft', className: 'border-signal-warn/50 bg-signal-warn/10 text-signal-warn' },
+    fast: { label: 'fast', className: 'border-signal-warn/50 bg-signal-warn/10 text-signal-warn' },
+    slow: { label: 'slow', className: 'border-signal-warn/50 bg-signal-warn/10 text-signal-warn' },
+    short: { label: 'short', className: 'border-k-accent/50 bg-k-accent/10 text-k-accent' },
+    miss: { label: 'miss', className: 'border-k-accent/50 bg-k-accent/10 text-k-accent' },
+    none: { label: '—', className: 'border-ink-line text-bone-mute' },
+  };
+  const pill = STATUS_PILL[sess.flag];
 
   const swapped = rawSession && sessionsDiffer(rawSession, sess.target);
 
   return (
-    <div className="py-3 grid grid-cols-[60px_1fr_120px_80px_28px] gap-4 items-center">
+    <div className="py-3.5 grid grid-cols-[60px_1fr_100px_90px_70px] gap-4 items-center">
       <span
         className={
           'font-display tracking-wide-display uppercase text-sm ' +
-          (dow === todayDow ? 'text-accent' : 'text-bone-dim')
+          (dow === todayDow ? 'text-k-accent' : 'text-bone-dim')
         }
       >
         {DOW_LABELS[dow]}
@@ -489,13 +524,20 @@ function ComplianceRow({
           </div>
         </div>
       )}
-      <span className="font-mono tabular-nums text-bone">
+      <span className="font-mono tabular-nums text-bone text-sm">
         {sess.actualKm != null ? `${sess.actualKm.toFixed(1)} km` : '—'}
       </span>
-      <span className="font-mono tabular-nums text-bone-dim text-sm">
+      <span className="font-mono tabular-nums text-bone-dim text-xs">
         {sess.actualPaceSpk ? `${formatSpk(sess.actualPaceSpk)}/km` : '—'}
       </span>
-      <FlagIcon size={18} strokeWidth={1.5} className={flagColor} />
+      <span
+        className={
+          'font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border text-center ' +
+          pill.className
+        }
+      >
+        {pill.label}
+      </span>
     </div>
   );
 }

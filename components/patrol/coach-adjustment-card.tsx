@@ -74,20 +74,20 @@ export function CoachAdjustmentCard(props: CoachCardProps) {
         <button
           type="button"
           disabled={isPending}
-          onClick={() => (rail ? setConfirmingDismiss(true) : act(dismissPlanAdjustment))}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm text-bone-dim hover:text-bone border border-ink-line hover:border-ink-line-bold disabled:opacity-50"
+          onClick={() => act(applyPlanAdjustment)}
+          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-k-accent text-ink font-sans font-semibold text-sm hover:bg-k-accent-hover disabled:opacity-50"
         >
-          <X size={14} strokeWidth={1.5} />
-          Dismiss
+          <Check size={14} strokeWidth={1.5} />
+          Apply
         </button>
         <button
           type="button"
           disabled={isPending}
-          onClick={() => act(applyPlanAdjustment)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-accent text-ink font-display tracking-wide-display uppercase text-sm hover:bg-accent-hover disabled:opacity-50"
+          onClick={() => (rail ? setConfirmingDismiss(true) : act(dismissPlanAdjustment))}
+          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm text-bone-dim hover:text-bone border border-ink-line hover:border-ink-line-bold disabled:opacity-50"
         >
-          <Check size={14} strokeWidth={1.5} />
-          Apply
+          <X size={14} strokeWidth={1.5} />
+          Dismiss
         </button>
       </>
     ) : (
@@ -125,6 +125,7 @@ export function CoachAdjustmentCard(props: CoachCardProps) {
       detail={rationale}
       elevated={elevated}
       decisionRow={decisionRow}
+      kiero
     >
       {injuryPaused && (
         <div className="flex items-start gap-2 rounded-lg border border-signal-warn/40 bg-signal-warn/5 px-3 py-2 text-xs text-signal-warn">

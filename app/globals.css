@@ -47,6 +47,32 @@
     /* Selection */
     --nn-selection-bg: var(--nn-accent);
     --nn-selection-fg: var(--nn-bone);
+
+    /* ---------------------------------------------------------------------
+     * Kiero layer — additive tokens for the Patrol revamp (kiero-1).
+     * Scoped by convention: only Patrol components + the mobile bottom nav
+     * consume these. Every other route keeps reading --nn-accent as before —
+     * this layer does NOT replace it. See DESIGN.md / kiero-1 commit notes.
+     * ------------------------------------------------------------------- */
+    --k-accent: #2DD9CE;                    /* teal — Patrol's CTA/interactive colour */
+    --k-accent-hover: #55E6DD;
+    --k-accent-glow: rgba(45, 217, 206, 0.18);
+
+    /* Static ring hues (happy-path default). Ring 1/2 share the mockup's
+       amber; ring 3 uses the mockup's purple. Overridden by --nn-signal-warn
+       /--nn-signal-miss at the component level whenever the underlying
+       metric's own tone crosses into warn/miss - see ring-trio.tsx. */
+    --k-ring-form: #F2A93D;
+    --k-ring-load: #F2A93D;
+    --k-ring-compliance: #8A7CFA;
+
+    /* Decorative data palette - stat-tile dots/sparklines only (not status
+       colour - status still comes from the existing signal tokens). */
+    --k-data-teal: #2DD9CE;
+    --k-data-purple: #8A7CFA;
+    --k-data-pink: #F0508F;
+    --k-data-green: #34D399;
+    --k-data-amber: #F5A623;
   }
 
   /* ---------------------------------------------------------------------

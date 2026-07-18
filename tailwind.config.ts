@@ -39,6 +39,25 @@ const config: Config = {
           long: 'var(--nn-matrix-long)',           // long runs in matrix
           strength: 'var(--nn-matrix-strength)',   // cross/strength sessions
         },
+        // Kiero layer (kiero-1) - additive, Patrol + bottom nav only. See
+        // app/globals.css for the token doc; nothing here touches --nn-*.
+        'k-accent': {
+          DEFAULT: 'var(--k-accent)',
+          hover: 'var(--k-accent-hover)',
+          glow: 'var(--k-accent-glow)',
+        },
+        'k-ring': {
+          form: 'var(--k-ring-form)',
+          load: 'var(--k-ring-load)',
+          compliance: 'var(--k-ring-compliance)',
+        },
+        'k-data': {
+          teal: 'var(--k-data-teal)',
+          purple: 'var(--k-data-purple)',
+          pink: 'var(--k-data-pink)',
+          green: 'var(--k-data-green)',
+          amber: 'var(--k-data-amber)',
+        },
       },
       fontFamily: {
         // Bebas Neue - display & wordmark.

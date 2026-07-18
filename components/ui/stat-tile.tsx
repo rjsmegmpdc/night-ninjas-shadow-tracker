@@ -17,6 +17,12 @@ import { cn } from '@/lib/utils';
  * border border-ink-line`, cells `bg-ink`), the same pattern Patrol's stats
  * row already uses. `Stat` (components/ui/stat.tsx) stays for simpler
  * one-off numbers that have no trend to interpret.
+ *
+ * `dotClassName` (kiero-1, additive, optional): a small colour-coded dot
+ * next to the label, matching the Kiero stat-tile grid's per-metric colour
+ * key (e.g. `bg-k-data-teal`). Undefined by default — Recon/Strike/VO2max
+ * never pass it, so their tiles render exactly as before. Patrol is the
+ * only current caller that sets it.
  */
 
 export type StatTileTone = 'ok' | 'warn' | 'miss' | 'neutral';
@@ -47,6 +53,8 @@ export interface StatTileProps {
   points?: number[];
   /** Full override — pass any ReactNode (e.g. a richer existing Sparkline) instead of `points`. */
   sparkline?: React.ReactNode;
+  /** Optional colour-dot className next to the label (e.g. `bg-k-data-teal`). See file doc. */
+  dotClassName?: string;
   className?: string;
 }
 
@@ -76,12 +84,15 @@ function DefaultSparkline({ points, toneClass }: { points: number[]; toneClass: 
   );
 }
 
-export function StatTile({ label, value, unit, target, word, tone, points, sparkline, className }: StatTileProps) {
+export function StatTile({ label, value, unit, target, word, tone, points, sparkline, dotClassName, className }: StatTileProps) {
   const toneClass = WORD_TONE_CLASS[tone];
 
   return (
     <div className={cn('bg-ink p-5 flex flex-col gap-2', className)}>
-      <span className="font-mono text-[10px] uppercase tracking-widest text-bone-mute">{label}</span>
+      <span className="font-mono text-[10px] uppercase tracking-widest text-bone-mute flex items-center gap-1.5">
+        {dotClassName && <span className={cn('inline-block w-1.5 h-1.5 rounded-full', dotClassName)} />}
+        {label}
+      </span>
       <div className="font-mono text-[34px] tabular-nums text-bone leading-none">
         {value}
         {unit && <span className="text-sm text-bone-mute ml-1">{unit}</span>}

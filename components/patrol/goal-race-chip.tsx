@@ -100,7 +100,7 @@ export async function GoalRaceChip({
   const { verdict, tone } = onTrackRead(volumePct, compliancePct);
 
   const isRaceWeek = goalDays < 14;
-  const proximityClass = isRaceWeek ? 'ring-1 ring-accent/40' : goalWeeks >= 12 ? 'border-ink-line' : undefined;
+  const proximityClass = isRaceWeek ? 'ring-1 ring-k-accent/40' : goalWeeks >= 12 ? 'border-ink-line' : undefined;
 
   return (
     <ChipLink

@@ -18,13 +18,20 @@ import { cn } from '@/lib/utils';
  * Row/divider layout (grouping the two clusters with a vertical divider)
  * is page-specific composition, not part of this primitive pair — that's
  * built directly in app/(app)/patrol/page.tsx in the next milestone.
+ *
+ * kiero-1: this primitive is Patrol-exclusive (only SyncChip, GoalRaceChip,
+ * and AmbientStrip's plan-position chip consume it — verified, no other
+ * route imports this file), so it's safe to move its shape fully to Kiero's
+ * pill language (rounded-full, roomier padding) rather than gate it behind
+ * an opt-in prop. `accent` tone now reads the new --k-accent teal instead of
+ * the retiring VELOCITY orange, since every consumer is on Patrol.
  */
 
 export type ChipTone = 'neutral' | 'ok' | 'warn' | 'miss' | 'accent';
 export type ChipSize = 'primary' | 'sm';
 
 const SIZE_CLASS: Record<ChipSize, string> = {
-  primary: 'text-xs px-[13px] py-2 border-ink-line-bold text-bone',
+  primary: 'text-xs px-4 py-2 border-ink-line-bold text-bone',
   sm: 'text-[10px] px-2.5 py-1.5 border-ink-line text-bone-dim',
 };
 
@@ -33,11 +40,11 @@ const TONE_CLASS: Record<ChipTone, string> = {
   ok: 'border-signal-ok/50 bg-signal-ok/[0.08] text-signal-ok',
   warn: 'border-signal-warn/50 bg-signal-warn/[0.08] text-signal-warn',
   miss: 'border-signal-miss/50 bg-signal-miss/[0.08] text-signal-miss',
-  accent: 'border-accent/50 bg-accent/[0.08] text-accent',
+  accent: 'border-k-accent/50 bg-k-accent/[0.08] text-k-accent',
 };
 
 const CHIP_BASE =
-  'inline-flex items-center gap-1.5 font-mono rounded-md border bg-ink-shadow whitespace-nowrap transition-colors';
+  'inline-flex items-center gap-1.5 font-mono rounded-full border bg-ink-shadow whitespace-nowrap transition-colors';
 
 export interface ChipProps extends React.HTMLAttributes<HTMLSpanElement> {
   tone?: ChipTone;
@@ -76,7 +83,7 @@ export function ChipLink({ href, tone = 'neutral', size = 'primary', title, clas
         CHIP_BASE,
         SIZE_CLASS[size],
         TONE_CLASS[tone],
-        'no-underline hover:border-accent hover:underline decoration-accent/50 underline-offset-[3px]',
+        'no-underline hover:border-k-accent hover:underline decoration-k-accent/50 underline-offset-[3px]',
         className
       )}
     >

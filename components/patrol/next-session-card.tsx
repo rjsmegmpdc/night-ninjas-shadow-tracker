@@ -40,11 +40,11 @@ const LIFE_EVENT_KINDS = new Set<WeekAdaptation['kind']>([
 ]);
 
 const ADAPTATION_STYLE: Record<WeekAdaptation['kind'], string> = {
-  taper: 'border-accent/60 text-accent bg-accent/5',
+  taper: 'border-k-accent/60 text-k-accent bg-k-accent/5',
   'no-training': 'border-signal-warn/60 text-signal-warn bg-signal-warn/5',
   reduced: 'border-signal-warn/60 text-signal-warn bg-signal-warn/5',
   'travel-only': 'border-signal-warn/60 text-signal-warn bg-signal-warn/5',
-  'tuneup-race': 'border-accent/60 text-accent bg-accent/5',
+  'tuneup-race': 'border-k-accent/60 text-k-accent bg-k-accent/5',
   'group-run': 'border-bone-dim/60 text-bone bg-ink-shadow',
   'ninja-loop': 'border-bone-mute/40 text-bone-mute bg-ink-shadow',
 };
@@ -63,8 +63,8 @@ export function NextSessionCard({
   const swapped = session && rawSession && sessionsDiffer(rawSession, session);
 
   return (
-    <Card className="border-accent/40 space-y-4">
-      <CardLabel className="text-accent">tonight's mission</CardLabel>
+    <Card className="border-k-accent/40 rounded-[22px] space-y-4">
+      <CardLabel className="text-k-accent">tonight's mission</CardLabel>
 
       {session ? (
         swapped ? (
@@ -106,7 +106,7 @@ export function NextSessionCard({
       <div className="flex justify-end pt-1">
         <Link
           href="/race"
-          className="font-mono text-xs text-bone-mute hover:text-accent transition-colors"
+          className="font-mono text-xs text-bone-mute hover:text-k-accent transition-colors"
           title="Race execution plan - pacing, fuelling, carb-load"
         >
           Race plan →

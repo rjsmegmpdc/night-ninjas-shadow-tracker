@@ -37,12 +37,12 @@ export function sessionsDiffer(a: SessionTarget, b: SessionTarget): boolean {
 
 export function SessionSwapRow({ oldSession, newSession }: { oldSession: SessionTarget; newSession: SessionTarget }) {
   return (
-    <div className="flex items-center gap-3.5 flex-wrap bg-ink-shadow border border-ink-line rounded-xl px-4 py-3.5">
+    <div className="flex items-center gap-3.5 flex-wrap bg-ink-shadow border border-ink-line rounded-2xl px-5 py-4">
       <div className="flex flex-col gap-0.5">
         <span className="font-display uppercase text-[15px] line-through text-bone-mute">{oldSession.label}</span>
         <span className="font-mono text-[11px] line-through text-bone-mute">{sessionPrescription(oldSession)}</span>
       </div>
-      <span className="text-signal-warn text-lg shrink-0">→</span>
+      <span className="text-k-accent text-lg shrink-0">→</span>
       <div className="flex flex-col gap-0.5">
         <span className="font-display uppercase text-[15px] text-bone">{newSession.label}</span>
         <span className="font-mono text-[11px] text-bone-dim">{sessionPrescription(newSession)}</span>
