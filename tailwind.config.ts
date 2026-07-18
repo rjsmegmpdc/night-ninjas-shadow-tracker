@@ -58,6 +58,32 @@ const config: Config = {
           green: 'var(--k-data-green)',
           amber: 'var(--k-data-amber)',
         },
+        // shadcn/ui theme layer (kiero-2) - namespaced `sh` rather than the
+        // classic bare background/primary/accent/etc keys, because those
+        // collide with the app-wide `accent` key above and (for radius) the
+        // rounded-lg/md/sm/xl scale in borderRadius below. See app/globals.css
+        // for the --sh-* CSS var values and the Kiero-colour mapping doc.
+        sh: {
+          background: 'hsl(var(--sh-background))',
+          foreground: 'hsl(var(--sh-foreground))',
+          card: 'hsl(var(--sh-card))',
+          'card-foreground': 'hsl(var(--sh-card-foreground))',
+          popover: 'hsl(var(--sh-popover))',
+          'popover-foreground': 'hsl(var(--sh-popover-foreground))',
+          primary: 'hsl(var(--sh-primary))',
+          'primary-foreground': 'hsl(var(--sh-primary-foreground))',
+          secondary: 'hsl(var(--sh-secondary))',
+          'secondary-foreground': 'hsl(var(--sh-secondary-foreground))',
+          muted: 'hsl(var(--sh-muted))',
+          'muted-foreground': 'hsl(var(--sh-muted-foreground))',
+          accent: 'hsl(var(--sh-accent))',
+          'accent-foreground': 'hsl(var(--sh-accent-foreground))',
+          destructive: 'hsl(var(--sh-destructive))',
+          'destructive-foreground': 'hsl(var(--sh-destructive-foreground))',
+          border: 'hsl(var(--sh-border))',
+          input: 'hsl(var(--sh-input))',
+          ring: 'hsl(var(--sh-ring))',
+        },
       },
       fontFamily: {
         // Bebas Neue - display & wordmark.
@@ -89,6 +115,14 @@ const config: Config = {
         xl: '10px',     // cards
         '2xl': '14px',  // hero panels, modals
         full: '9999px', // circles only (avatars, dots)
+        // shadcn/ui theme layer (kiero-2) - separate namespace from the
+        // scale above so shadcn's own rounded-md/lg/xl references (renamed
+        // to sh-md/sh-lg/sh-xl in components/shadcn/*) don't collide with
+        // or repaint the existing app-wide rounded-lg/md/xl values.
+        'sh-sm': 'calc(var(--sh-radius) - 8px)',
+        'sh-md': 'calc(var(--sh-radius) - 4px)',
+        'sh-lg': 'var(--sh-radius)',
+        'sh-xl': 'calc(var(--sh-radius) + 4px)',
       },
       boxShadow: {
         // Subtle layered depth for cards. Avoid harsh shadows.

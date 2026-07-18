@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Card, CardLabel } from '@/components/ui/card';
+import { CardLabel } from '@/components/ui/card';
+import { Card } from '@/components/shadcn/card';
 import { SessionSwapRow, sessionPrescription, sessionsDiffer } from '@/components/patrol/session-swap-row';
 import type { SessionTarget, WeekAdaptation } from '@/lib/plans/types';
 
@@ -63,7 +64,7 @@ export function NextSessionCard({
   const swapped = session && rawSession && sessionsDiffer(rawSession, session);
 
   return (
-    <Card className="border-k-accent/40 rounded-[22px] space-y-4">
+    <Card className="border-k-accent/40 space-y-4 p-6">
       <CardLabel className="text-k-accent">tonight's mission</CardLabel>
 
       {session ? (

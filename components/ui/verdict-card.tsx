@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { Card } from '@/components/shadcn/card';
 
 /**
  * VerdictCard — redesign spec §2.1. Unifies CoachReadCard + CoachAdjustment­Card
@@ -32,6 +33,12 @@ import { cn } from '@/lib/utils';
  * decision row. Only Patrol's CoachReadCard/CoachAdjustmentCard pass this;
  * every other caller (components/club-share/club-page.tsx) omits it and
  * renders exactly as before — this prop changes nothing when unset.
+ *
+ * kiero-2: when `kiero` is true, the outer shell is now the shadcn Card
+ * (components/shadcn/card.tsx) instead of the nn-card/nn-card-elevated
+ * classes — same visual language, real shadcn primitive underneath. The
+ * `kiero={false}` path (Club's usage) is untouched, still a plain div with
+ * nn-card/nn-card-elevated, exactly as before this pass.
  */
 
 export type VerdictTone = 'accent' | 'ok' | 'warn' | 'miss';
@@ -86,11 +93,14 @@ export function VerdictCard({
   kiero = false,
   className,
 }: VerdictCardProps) {
+  const Wrapper = kiero ? Card : 'div';
+
   return (
-    <div
+    <Wrapper
       className={cn(
-        elevated ? cn('nn-card-elevated border-t-2', TONE_BORDER_TOP[tone]) : 'nn-card',
-        kiero ? 'rounded-[22px] p-7 space-y-5' : 'p-6 space-y-4',
+        kiero
+          ? cn('p-7 space-y-5', elevated && cn('border-t-2', TONE_BORDER_TOP[tone]))
+          : cn(elevated ? cn('nn-card-elevated border-t-2', TONE_BORDER_TOP[tone]) : 'nn-card', 'p-6 space-y-4'),
         className
       )}
     >
@@ -150,6 +160,6 @@ export function VerdictCard({
       {decisionRow && (
         <div className={cn('flex items-center gap-2.5', kiero ? 'justify-start' : 'justify-end')}>{decisionRow}</div>
       )}
-    </div>
+    </Wrapper>
   );
 }

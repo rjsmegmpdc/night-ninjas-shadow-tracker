@@ -1,4 +1,4 @@
-import { Card } from '@/components/ui/card';
+import { Card } from '@/components/shadcn/card';
 import { RingGauge } from '@/components/ui/ring-gauge';
 import { ACWR_HARD_RAIL, ACWR_CAUTION } from '@/lib/plans/state-awareness';
 import type { AthleteState, FormClass } from '@/lib/analysis/athlete-state';
@@ -98,7 +98,7 @@ export function RingTrio({
   const compliancePctFill = compliancePct ?? 0;
 
   return (
-    <Card className="grid grid-cols-3 gap-3 sm:gap-6 py-8">
+    <Card className="grid grid-cols-3 gap-3 sm:gap-6 px-6 py-8">
       <RingGauge
         value={`${tsb >= 0 ? '+' : ''}${Math.round(tsb)}`}
         label="form"

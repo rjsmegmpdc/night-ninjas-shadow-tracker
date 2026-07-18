@@ -73,6 +73,44 @@
     --k-data-pink: #F0508F;
     --k-data-green: #34D399;
     --k-data-amber: #F5A623;
+
+    /* ---------------------------------------------------------------------
+     * shadcn/ui theme layer (kiero-2) — additive, namespaced `--sh-*`.
+     * Consumed only by components/shadcn/* (Button/Card/Badge/Separator)
+     * and their Patrol call sites. Namespaced rather than the classic bare
+     * --background/--primary/etc names because those collide with existing
+     * app-wide tailwind.config.ts keys (accent, and the rounded-lg/md/sm/xl
+     * scale) — see tailwind.config.ts's `sh` colour block and `sh-*`
+     * borderRadius keys. Dark-only by design intent (no light-theme
+     * override block) - matches k-* precedent from kiero-1.
+     *
+     * Values are HSL conversions of existing nn-* / k-accent hex values
+     * (documented per line below), not new colours - same discipline as
+     * kiero-1's ring-tone mapping.
+     * ------------------------------------------------------------------- */
+    --sh-background: 0 0% 4%;            /* nn-ink #0A0A0A */
+    --sh-foreground: 60 20% 95%;         /* nn-bone #F5F5F0 */
+    --sh-card: 0 0% 8%;                  /* nn-ink-shadow #141414 */
+    --sh-card-foreground: 60 20% 95%;    /* nn-bone */
+    --sh-popover: 0 0% 11%;              /* nn-ink-panel #1C1C1C */
+    --sh-popover-foreground: 60 20% 95%; /* nn-bone */
+    --sh-primary: 176 69% 51%;           /* k-accent teal #2DD9CE */
+    --sh-primary-foreground: 0 0% 4%;    /* nn-ink - dark text on teal, matches kiero-1 CTAs */
+    --sh-secondary: 0 0% 11%;            /* nn-ink-panel */
+    --sh-secondary-foreground: 60 20% 95%; /* nn-bone */
+    --sh-muted: 0 0% 8%;                 /* nn-ink-shadow */
+    --sh-muted-foreground: 60 3% 65%;    /* nn-bone-dim #A5A5A0 */
+    /* shadcn's "accent" is a neutral hover highlight, not a brand colour -
+       mapping it to k-accent teal would turn every ghost/outline button
+       hover teal, which isn't the pattern anywhere else on Patrol. */
+    --sh-accent: 0 0% 11%;               /* nn-ink-panel - neutral hover bg */
+    --sh-accent-foreground: 60 20% 95%;  /* nn-bone */
+    --sh-destructive: 0 72% 51%;         /* nn-signal-miss #DC2626 */
+    --sh-destructive-foreground: 0 0% 100%;
+    --sh-border: 0 0% 16%;               /* nn-ink-line #2A2A2A */
+    --sh-input: 0 0% 16%;                /* nn-ink-line */
+    --sh-ring: 176 69% 51%;              /* k-accent teal - focus ring matches brand */
+    --sh-radius: 1.25rem;                /* Kiero card rounding */
   }
 
   /* ---------------------------------------------------------------------

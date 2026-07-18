@@ -1,4 +1,5 @@
 import { Chip } from '@/components/ui/ambient-chips';
+import { Separator } from '@/components/shadcn/separator';
 import { SyncChip } from '@/components/patrol/sync-chip';
 import { GoalRaceChip } from '@/components/patrol/goal-race-chip';
 import { FreshnessChip } from '@/components/patrol/freshness-chip';
@@ -54,7 +55,7 @@ export function AmbientStrip({
         <GoalRaceChip compliance={compliance} todayDow={todayDow} volumePct={volumePct} />
       </div>
 
-      <div className="w-px h-5 bg-ink-line shrink-0" />
+      <Separator orientation="vertical" className="h-5" />
 
       <div className="flex items-center flex-wrap gap-1.5">
         <FreshnessChip state={athleteState} />

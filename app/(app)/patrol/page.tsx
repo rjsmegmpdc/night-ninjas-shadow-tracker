@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { eq } from 'drizzle-orm';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Card, CardLabel } from '@/components/ui/card';
+import { Card as ShadcnCard } from '@/components/shadcn/card';
+import { Badge } from '@/components/shadcn/badge';
 import { StatTile } from '@/components/ui/stat-tile';
 import { SyncStatusBanner } from '@/components/sync/sync-status-banner';
 import { PromptQueue } from '@/components/patrol/prompt-queue';
@@ -381,8 +383,8 @@ async function PatrolDashboard() {
 
       {/* Two-column body */}
       <div className="grid lg:grid-cols-[3fr_2fr] gap-8">
-        {/* Sessions — kiero-1: rounded-[22px] shell + status-pill rows (see ComplianceRow) */}
-        <Card className="space-y-5 rounded-[22px]">
+        {/* Sessions — kiero-2: shadcn Card shell (Kiero-radius, native) + status-pill rows (see ComplianceRow) */}
+        <ShadcnCard className="space-y-5 p-6">
           <div className="flex items-center justify-between">
             <CardLabel>session compliance</CardLabel>
             <span className="font-mono text-xs text-bone-mute">
@@ -414,7 +416,7 @@ async function PatrolDashboard() {
               ));
             })}
           </div>
-        </Card>
+        </ShadcnCard>
 
         {/* Side column — thin pointer to Journal, which owns wellness */}
         <div className="space-y-5">
@@ -530,14 +532,15 @@ function ComplianceRow({
       <span className="font-mono tabular-nums text-bone-dim text-xs">
         {sess.actualPaceSpk ? `${formatSpk(sess.actualPaceSpk)}/km` : '—'}
       </span>
-      <span
+      <Badge
+        variant="outline"
         className={
-          'font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border text-center ' +
+          'font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full justify-center ' +
           pill.className
         }
       >
         {pill.label}
-      </span>
+      </Badge>
     </div>
   );
 }

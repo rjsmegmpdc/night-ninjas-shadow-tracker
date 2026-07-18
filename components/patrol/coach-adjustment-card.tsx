@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Bot, AlertTriangle, Check, X } from 'lucide-react';
 import { VerdictCard, type VerdictTone } from '@/components/ui/verdict-card';
+import { Button } from '@/components/shadcn/button';
 import { applyPlanAdjustment, dismissPlanAdjustment } from '@/lib/actions/plan-adjustments';
 
 /**
@@ -71,24 +72,28 @@ export function CoachAdjustmentCard(props: CoachCardProps) {
   const decisionRow = status === 'pending' ? (
     !confirmingDismiss ? (
       <>
-        <button
+        {/* kiero-2: shadcn Button (variant="default" -> bg-sh-primary/text-sh-primary-foreground,
+            same teal-on-ink CTA as before) - pill shape + font via className override,
+            the "customize via wrapper classes" pattern from the plan. */}
+        <Button
           type="button"
           disabled={isPending}
           onClick={() => act(applyPlanAdjustment)}
-          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-k-accent text-ink font-sans font-semibold text-sm hover:bg-k-accent-hover disabled:opacity-50"
+          className="rounded-full h-11 px-5 font-sans font-semibold"
         >
           <Check size={14} strokeWidth={1.5} />
           Apply
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
           disabled={isPending}
           onClick={() => (rail ? setConfirmingDismiss(true) : act(dismissPlanAdjustment))}
-          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm text-bone-dim hover:text-bone border border-ink-line hover:border-ink-line-bold disabled:opacity-50"
+          className="rounded-full h-11 px-5 font-sans text-bone-dim hover:text-bone border border-ink-line hover:border-ink-line-bold"
         >
           <X size={14} strokeWidth={1.5} />
           Dismiss
-        </button>
+        </Button>
       </>
     ) : (
       <div className="flex items-center gap-3">
